@@ -103,7 +103,7 @@ The sidebar page is where you manage everything:
 - **Rules**: the list of rules with their keywords, players and last match, in the order they are checked. Drag a rule by its handle (or use the arrows) to change the order. The switch turns a rule off without deleting it. Select a rule to edit or delete it.
 - **Now playing**: what the players of your rules play right now, with an **Add to rule** button. See [Adding what plays right now](#adding-what-plays-right-now).
 - **Recent activity** on a rule: the last thirty things the rule did (skipped, switched, returned, muted, hit a limit, and why), kept across restarts.
-- **Create rule** opens a page with one form. Every field and every choice has a short explanation underneath it. The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search, the station information to ignore, the persons and other conditions.
+- **Create rule** opens a page with one form. Every field and every choice has a short explanation underneath it, and fields only appear when they matter (the switch limit with a limited repeat, the presence mode once persons are chosen). The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search and the persons. Less common fields (your own actions, station information to ignore, other conditions) sit behind the **Add** button of their section. Delete a rule from the three dots menu at the top of its page.
 - **Snooze** pauses every rule for the snooze time; **Resume** ends the pause early.
 - **Settings** holds the snooze time, the cooldown and the confirmation delay.
 

@@ -56,8 +56,7 @@ const STRINGS = {
     move_up: "Move up",
     move_down: "Move down",
     drag: "Drag to change the order",
-    rule_intro:
-      "A rule says which keywords to look for, on which players, and what to do when a keyword plays. Every field has a short explanation underneath it.",
+    more: "More options",
     settings_text: "These settings apply to every rule.",
     now_playing: "Now playing",
     now_playing_text:
@@ -81,10 +80,15 @@ const STRINGS = {
       "{player} is not playing anything right now. Start something and come back, or type the keyword in the rule yourself.",
     unknown_player: "This media player does not exist.",
     no_rules_yet: "There are no rules yet. Create one with these keywords.",
-    section_auto_skip: "When a track plays: skip it",
-    section_auto_switch: "When a radio stream plays: switch station, or mute without a station",
+    section_auto_skip: "Tracks",
+    section_auto_skip_text: "A track that matches is skipped.",
+    section_auto_switch: "Radio streams",
+    section_auto_switch_text:
+      "A radio stream that matches goes to the station below, and comes back later. Without a station the player is muted until the keyword is gone.",
     section_skip: "Skipping",
     section_switch: "Switching station",
+    section_switch_text:
+      "Choose what to play instead. The Radio Browser source in the media browser lists thousands of stations.",
     section_mute: "Muting",
     action_auto:
       "Looks at what plays. A track is skipped; a radio stream switches to the station you choose below, or is muted until the keyword is gone when no station is set. The best choice for most rules.",
@@ -148,8 +152,7 @@ const STRINGS = {
     move_up: "Omhoog",
     move_down: "Omlaag",
     drag: "Sleep om de volgorde te veranderen",
-    rule_intro:
-      "Een regel zegt op welke trefwoorden je let, op welke spelers, en wat er gebeurt als een trefwoord speelt. Onder elk veld staat een korte uitleg.",
+    more: "Meer opties",
     settings_text: "Deze instellingen gelden voor alle regels.",
     now_playing: "Nu speelt",
     now_playing_text:
@@ -173,10 +176,15 @@ const STRINGS = {
       "{player} speelt op dit moment niets. Start iets en kom terug, of typ het trefwoord zelf in de regel.",
     unknown_player: "Deze mediaspeler bestaat niet.",
     no_rules_yet: "Er zijn nog geen regels. Maak er een met deze trefwoorden.",
-    section_auto_skip: "Als een nummer speelt: overslaan",
-    section_auto_switch: "Als een radiostream speelt: andere zender, of dempen zonder zender",
+    section_auto_skip: "Nummers",
+    section_auto_skip_text: "Een nummer dat past wordt overgeslagen.",
+    section_auto_switch: "Radiostreams",
+    section_auto_switch_text:
+      "Een radiostream die past gaat naar de zender hieronder en komt later terug. Zonder zender wordt de speler gedempt tot het trefwoord weg is.",
     section_skip: "Overslaan",
     section_switch: "Andere zender",
+    section_switch_text:
+      "Kies wat er in plaats daarvan speelt. De bron Radio Browser in de mediabrowser heeft duizenden zenders.",
     section_mute: "Dempen",
     action_auto:
       "Kijkt naar wat er speelt. Een nummer wordt overgeslagen; een radiostream gaat naar de zender die je hieronder kiest, of wordt gedempt tot het trefwoord weg is als er geen zender is. De beste keuze voor de meeste regels.",
@@ -196,6 +204,11 @@ const STRINGS = {
 };
 
 const ACTION_ICONS = { auto: "mdi:auto-fix", skip: "mdi:skip-next", switch: "mdi:radio", mute: "mdi:volume-off" };
+const SECTION_ICONS = { skip: "mdi:skip-next", switch: "mdi:radio", mute: "mdi:volume-off", matching: "mdi:text-search", when: "mdi:home-account" };
+// Choice fields show an explanation per option, so the field's own help text would repeat it.
+const CHOICE_FIELDS = ["action", "match_mode", "repeat_mode", "presence_mode"];
+// Fields that stay hidden behind an "add" button until they get a value.
+const OPTIONAL_FIELDS = ["station_actions", "return_fallback_media", "return_fallback_actions", "ignore_texts", "conditions"];
 const ACTIONS = ["auto", "skip", "switch", "mute"];
 const MATCH_MODES = ["whole_word", "substring", "regex"];
 const MATCH_FIELDS = ["title", "artist", "album", "channel"];
@@ -209,7 +222,6 @@ const DEFAULT_RULE = {
   action: "auto",
   match_mode: "whole_word",
   match_fields: ["title", "artist"],
-  ignore_texts: [],
   max_consecutive: 5,
   return_after_minutes: 5,
   repeat_mode: "limited",
@@ -218,7 +230,6 @@ const DEFAULT_RULE = {
   max_mute_minutes: 10,
   persons: [],
   presence_mode: "any_home",
-  conditions: [],
 };
 
 // Where each field's label and help text live in the translations.
@@ -254,12 +265,22 @@ const icon = (name, slot = "") =>
   `<ha-icon ${slot ? `slot="${slot}"` : ""} icon="${esc(name)}"></ha-icon>`;
 // Help texts are written in Markdown for the wizard; the form shows plain text.
 const plain = (text) => String(text ?? "").replace(/\*\*/g, "").replace(/`/g, "");
+// The form shows an optional field as soon as its key exists, so empty ones are left out.
+const withoutEmpty = (data) => {
+  const out = { ...data };
+  for (const key of OPTIONAL_FIELDS) {
+    const value = out[key];
+    if (value == null || (Array.isArray(value) && value.length === 0)) delete out[key];
+  }
+  return out;
+};
 
 // Home Assistant only loads most of its components when a page needs them.
 // Load the configuration panel once, which defines the form components we use.
 const NEEDED = ["ha-card", "ha-button", "ha-alert", "ha-switch", "ha-spinner", "ha-icon-button", "ha-form"];
-// Nice to have: drag and drop for the rule list, and checkboxes on the add page.
-const OPTIONAL = ["ha-sortable", "ha-checkbox"];
+// Nice to have: drag and drop for the rule list, checkboxes on the add page, and
+// the overflow menu of the toolbar (its component differs per Home Assistant version).
+const OPTIONAL = ["ha-sortable", "ha-checkbox", "ha-dropdown", "ha-dropdown-item", "ha-button-menu", "ha-list-item"];
 const PLAYING = new Set(["playing", "buffering"]);
 const TRACK_FIELDS = { title: "media_title", artist: "media_artist", album: "media_album_name", channel: "media_channel" };
 
@@ -376,8 +397,10 @@ class SuperSkipperPanel extends HTMLElement {
   }
 
   set narrow(value) {
+    const changed = this._narrow !== value;
     this._narrow = value;
     for (const el of this.shadowRoot.querySelectorAll("ha-menu-button")) el.narrow = value;
+    if (changed && this._ruleForm && this._draft) this._ruleForm.schema = this._ruleSchema(this._draft);
   }
 
   set route(route) {
@@ -422,8 +445,27 @@ class SuperSkipperPanel extends HTMLElement {
 
   _fieldHelper(name) {
     const path = FIELD_PATHS[name];
-    if (!path) return "";
+    if (!path || CHOICE_FIELDS.includes(name)) return "";
     return plain(this._localize(`config_subentries.rule.${path.replace(".data.", ".data_description.")}`));
+  }
+
+  // The text at the top of an expandable section of the rule form.
+  _sectionHelper(name) {
+    const auto = this._draft?.action === "auto";
+    switch (name) {
+      case "skip":
+        return auto ? this._t("section_auto_skip_text") : "";
+      case "switch":
+        return this._t(auto ? "section_auto_switch_text" : "section_switch_text");
+      case "mute":
+        return plain(this._localize("config_subentries.rule.step.mute.description"));
+      case "matching":
+        return plain(this._localize("config_subentries.rule.step.basics.sections.matching.description"));
+      case "when":
+        return plain(this._localize("config_subentries.rule.step.conditions.description"));
+      default:
+        return "";
+    }
   }
 
   _option(key, value) {
@@ -620,14 +662,14 @@ class SuperSkipperPanel extends HTMLElement {
     if (view.name !== "rule" || !this._state?.configured) return;
     if (this._draftId === view.id && this._draft) return;
     if (view.id === null) {
-      this._draft = { ...DEFAULT_RULE, ...(this._prefill || {}) };
+      this._draft = withoutEmpty({ ...DEFAULT_RULE, ...(this._prefill || {}) });
       this._prefill = null;
       this._draftId = null;
       return;
     }
     const rule = this._rule(view.id);
     if (!rule) return;
-    this._draft = { ...DEFAULT_RULE, ...JSON.parse(JSON.stringify(rule.data)) };
+    this._draft = withoutEmpty({ ...DEFAULT_RULE, ...JSON.parse(JSON.stringify(rule.data)) });
     this._draftId = view.id;
   }
 
@@ -703,10 +745,25 @@ class SuperSkipperPanel extends HTMLElement {
       case "save-rule":
         await this._saveRule();
         return;
-      case "delete-ask":
-        this._confirmDelete = true;
-        this._render();
+      case "delete-ask": {
+        const rule = this._rule(data.id);
+        if (!rule) return;
+        const confirmed = await this._confirm({
+          title: this._t("delete_confirm", { name: rule.title }),
+          text: this._t("delete_text"),
+          confirmText: this._t("delete_rule"),
+          dismissText: this._t("cancel"),
+          destructive: true,
+        });
+        if (confirmed === null) {
+          // No dialog available: ask on the page itself.
+          this._confirmDelete = true;
+          this._render();
+        } else if (confirmed) {
+          await this._action("delete", { id: data.id });
+        }
         return;
+      }
       case "delete-cancel":
         this._confirmDelete = false;
         this._render();
@@ -719,6 +776,17 @@ class SuperSkipperPanel extends HTMLElement {
         return;
       default:
         return;
+    }
+  }
+
+  // Home Assistant's own confirmation dialog. Resolves to null when it cannot be shown.
+  async _confirm(params) {
+    try {
+      const helpers = await window.loadCardHelpers?.();
+      if (!helpers?.showConfirmationDialog) return null;
+      return !!(await helpers.showConfirmationDialog(this, params));
+    } catch (_err) {
+      return null;
     }
   }
 
@@ -824,6 +892,7 @@ class SuperSkipperPanel extends HTMLElement {
   // The rule form
 
   _ruleSchema(draft) {
+    const columns = this._narrow ? 1 : 2;
     const select = (key, values, multiple = false) => ({
       select: {
         mode: multiple ? "dropdown" : "list",
@@ -831,33 +900,51 @@ class SuperSkipperPanel extends HTMLElement {
         options: values.map((value) => ({ value, label: this._option(key, value) })),
       },
     });
-    // One option per row, each with its own explanation.
+    // Boxes with an explanation per option; one column on a phone.
     const choice = (key, values) => ({
       select: {
         mode: "box",
-        box_max_columns: 1,
+        box_max_columns: columns,
         options: values.map((value) => ({ value, label: this._option(key, value), description: this._t(`${key}_${value}`) })),
       },
     });
-    const group = (name, title, schema) => ({ name, type: "expandable", flatten: true, expanded: true, title, schema });
+    const group = (name, title, schema, expanded = true) => ({
+      name,
+      type: "expandable",
+      flatten: true,
+      expanded,
+      title,
+      icon: SECTION_ICONS[name],
+      schema,
+    });
+    // Fields behind an "add" button until they have a value (ha-form's optional_actions).
+    const optional = (name, schema) => ({ name, type: "optional_actions", flatten: true, schema });
     const number = (min, max, unit, step = 1) => ({
       number: { min, max, step, mode: "box", ...(unit ? { unit_of_measurement: unit } : {}) },
     });
+    // Browse with one of the rule's own players; with a single player the picker disappears.
+    const media = (name) => ({ name, selector: { media: {} }, context: { filter_entity: "players" } });
     const sectionTitle = (step, section) =>
       this._localize(`config_subentries.rule.step.${step}.sections.${section}.name`) || section;
     const hasError = (...names) => names.some((name) => this._errors[name]);
 
     const action = ACTIONS.includes(draft.action) ? draft.action : "auto";
+    const returns = Number(draft.return_after_minutes) > 0;
+    const limited = (draft.repeat_mode || "limited") === "limited";
+    const persons = (draft.persons || []).length > 0;
+
     const skipFields = [{ name: "max_consecutive", selector: number(0, 50) }];
     const switchFields = [
-        { name: "station", selector: { media: {} } },
+      media("station"),
+      { name: "return_after_minutes", required: true, selector: number(0, 1440, "min") },
+      ...(returns ? [media("return_fallback_media")] : []),
+      { name: "repeat_mode", required: true, selector: choice("repeat_mode", REPEAT_MODES) },
+      ...(limited ? [{ name: "repeat_limit", required: true, selector: number(1, 50) }] : []),
+      optional("switch_more", [
         { name: "station_actions", selector: { action: {} } },
-        { name: "return_after_minutes", required: true, selector: number(0, 1440, "min") },
-        { name: "return_fallback_media", selector: { media: {} } },
-        { name: "return_fallback_actions", selector: { action: {} } },
-        { name: "repeat_mode", required: true, selector: choice("repeat_mode", REPEAT_MODES) },
-        { name: "repeat_limit", required: true, selector: number(1, 50) },
-      ];
+        ...(returns ? [{ name: "return_fallback_actions", selector: { action: {} } }] : []),
+      ]),
+    ];
     const muteFields = [
       { name: "hold_seconds", required: true, selector: number(0, 300, "s") },
       { name: "max_mute_minutes", required: true, selector: number(0, 180, "min") },
@@ -878,31 +965,32 @@ class SuperSkipperPanel extends HTMLElement {
       { name: "players", required: true, selector: { entity: { domain: "media_player", multiple: true } } },
       { name: "action", required: true, selector: choice("action", ACTIONS) },
       ...specific,
-      {
-        name: "matching",
-        type: "expandable",
-        flatten: true,
-        title: sectionTitle("basics", "matching"),
-        expanded: hasError("match_mode", "match_fields", "ignore_texts"),
-        schema: [
+      group(
+        "matching",
+        sectionTitle("basics", "matching"),
+        [
           { name: "match_mode", required: true, selector: choice("match_mode", MATCH_MODES) },
           { name: "match_fields", required: true, selector: select("match_fields", MATCH_FIELDS, true) },
-          { name: "ignore_texts", selector: { text: { multiple: true } } },
+          optional("matching_more", [{ name: "ignore_texts", selector: { text: { multiple: true } } }]),
         ],
-      },
-      {
-        name: "when",
-        type: "expandable",
-        flatten: true,
-        title: this._localize("config_subentries.rule.step.conditions.title") || "Conditions",
-        expanded: hasError("persons", "presence_mode", "conditions"),
-        schema: [
+        hasError("match_mode", "match_fields", "ignore_texts")
+      ),
+      group(
+        "when",
+        this._localize("config_subentries.rule.step.conditions.title") || "Conditions",
+        [
           { name: "persons", selector: { entity: { domain: "person", multiple: true } } },
-          { name: "presence_mode", required: true, selector: choice("presence_mode", PRESENCE_MODES) },
-          { name: "conditions", selector: { condition: {} } },
+          ...(persons ? [{ name: "presence_mode", required: true, selector: choice("presence_mode", PRESENCE_MODES) }] : []),
+          optional("when_more", [{ name: "conditions", selector: { condition: {} } }]),
         ],
-      },
+        hasError("persons", "presence_mode", "conditions")
+      ),
     ];
+  }
+
+  // The values that decide which fields the form shows.
+  _schemaKey(draft) {
+    return [draft.action, draft.repeat_mode, Number(draft.return_after_minutes) > 0, (draft.persons || []).length > 0].join("|");
   }
 
   _mountRuleForm(host) {
@@ -910,16 +998,17 @@ class SuperSkipperPanel extends HTMLElement {
     if (!this._ruleForm) {
       const form = document.createElement("ha-form");
       form.computeLabel = (schema) => this._fieldLabel(schema.name);
-      form.computeHelper = (schema) => this._fieldHelper(schema.name);
+      form.computeHelper = (schema) =>
+        schema.type === "expandable" ? this._sectionHelper(schema.name) : this._fieldHelper(schema.name);
       form.computeError = (error) =>
         this._localize(`config_subentries.rule.error.${error}`, this._placeholders) || error;
       form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
         const value = ev.detail.value || {};
-        const actionChanged = value.action !== this._draft?.action;
+        const layoutChanged = this._schemaKey(value) !== this._schemaKey(this._draft || {});
         this._draft = value;
         form.data = value;
-        if (actionChanged) form.schema = this._ruleSchema(value);
+        if (layoutChanged) form.schema = this._ruleSchema(value);
         const title = this.shadowRoot.querySelector(".main-title");
         if (title) title.textContent = this._ruleTitle();
       });
@@ -1012,11 +1101,42 @@ class SuperSkipperPanel extends HTMLElement {
     this._mountOptionsForm(this.shadowRoot.getElementById("options-form"));
   }
 
-  _toolbar(title, { back = false } = {}) {
+  _toolbar(title, { back = false, menu = [] } = {}) {
     const lead = back
       ? `<ha-icon-button data-action="home" label="${esc(this._t("back"))}">${icon("mdi:arrow-left")}</ha-icon-button>`
       : `<ha-menu-button></ha-menu-button>`;
-    return `<div class="toolbar">${lead}<div class="main-title">${esc(title)}</div></div>`;
+    return `<div class="toolbar">${lead}<div class="main-title">${esc(title)}</div>${this._overflow(menu)}</div>`;
+  }
+
+  // The three-dots menu of the toolbar. Home Assistant renamed its menu component
+  // over time, so use whichever is there; without one, show the items as buttons.
+  _overflow(items) {
+    if (!items.length) return "";
+    const attrs = (item) =>
+      `data-action="${esc(item.action)}" ` +
+      Object.entries(item.data || {})
+        .map(([k, v]) => `data-${k}="${esc(v)}"`)
+        .join(" ");
+    const trigger = `<ha-icon-button slot="trigger" label="${esc(this._t("more"))}">${icon("mdi:dots-vertical")}</ha-icon-button>`;
+    if (customElements.get("ha-dropdown") && customElements.get("ha-dropdown-item")) {
+      return `<ha-dropdown class="overflow">${trigger}${items
+        .map(
+          (item) =>
+            `<ha-dropdown-item value="${esc(item.action)}" ${item.danger ? 'variant="danger"' : ""} ${attrs(item)}>${icon(item.icon, "icon")}${esc(item.label)}</ha-dropdown-item>`
+        )
+        .join("")}</ha-dropdown>`;
+    }
+    if (customElements.get("ha-button-menu") && customElements.get("ha-list-item")) {
+      return `<ha-button-menu class="overflow">${trigger}${items
+        .map(
+          (item) =>
+            `<ha-list-item graphic="icon" class="${item.danger ? "warning" : ""}" ${attrs(item)}>${icon(item.icon, "graphic")}${esc(item.label)}</ha-list-item>`
+        )
+        .join("")}</ha-button-menu>`;
+    }
+    return `<div class="overflow">${items
+      .map((item) => `<ha-icon-button label="${esc(item.label)}" ${attrs(item)}>${icon(item.icon)}</ha-icon-button>`)
+      .join("")}</div>`;
   }
 
   _loading() {
@@ -1256,28 +1376,27 @@ class SuperSkipperPanel extends HTMLElement {
     }
     const errorList = this._errorList();
     const lastMatch = rule ? this._activityCard(rule) : "";
-    const remove = rule
-      ? `<ha-card header="${esc(this._t("delete_rule"))}"><p class="card-text">${esc(this._t("delete_text"))}</p>${
-          this._confirmDelete
-            ? `<div class="card-content">${this._alert("warning", "", {
-                title: this._t("delete_confirm", { name: rule.title }),
-                actions:
-                  this._button(this._t("cancel"), "delete-cancel", { appearance: "plain" }) +
-                  this._button(this._t("delete_rule"), "delete", { variant: "danger", data: { id: rule.id }, busy: this._busy.has("delete") }),
-              })}</div>`
-            : `<div class="card-actions">${this._button(this._t("delete_rule"), "delete-ask", { appearance: "plain", variant: "danger", iconName: "mdi:delete-outline" })}</div>`
-        }</ha-card>`
-      : "";
-    return `${this._toolbar(this._ruleTitle(), { back: true })}
+    const menu = rule
+      ? [{ action: "delete-ask", label: this._t("delete_rule"), icon: "mdi:delete-outline", danger: true, data: { id: rule.id } }]
+      : [];
+    const confirm =
+      rule && this._confirmDelete
+        ? this._alert("warning", esc(this._t("delete_text")), {
+            title: this._t("delete_confirm", { name: rule.title }),
+            actions:
+              this._button(this._t("cancel"), "delete-cancel", { appearance: "plain" }) +
+              this._button(this._t("delete_rule"), "delete", { variant: "danger", data: { id: rule.id }, busy: this._busy.has("delete") }),
+          })
+        : "";
+    return `${this._toolbar(this._ruleTitle(), { back: true, menu })}
       <div class="content"><div class="container">
         ${this._state.loaded ? "" : this._alert("warning", esc(this._t("not_loaded")))}
-        ${this._notices()}${errorList}
+        ${this._notices()}${errorList}${confirm}
         <ha-card>
-          <p class="card-text intro">${esc(this._t("rule_intro"))}</p>
           <div class="card-content form"><div id="rule-form"></div></div>
           <div class="card-actions">${this._button(this._t("cancel"), "home", { appearance: "plain" })}${this._button(this._t("save"), "save-rule", { busy: this._busy.has("save") })}</div>
         </ha-card>
-        ${lastMatch}${remove}
+        ${lastMatch}
       </div></div>`;
   }
 }
@@ -1310,15 +1429,18 @@ const STYLES = `
   position: sticky; top: 0; z-index: 2;
 }
 .main-title {
-  margin-inline-start: var(--ss-space-3); font-size: var(--ha-font-size-xl, 20px);
+  flex: 1; margin-inline-start: var(--ss-space-3); font-size: var(--ha-font-size-xl, 20px);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.overflow { flex: none; display: flex; align-items: center; }
+ha-list-item.warning { color: var(--error-color); --mdc-theme-text-primary-on-background: var(--error-color); }
+ha-list-item.warning ha-icon { color: var(--error-color); }
 .content { padding: var(--ss-space-4); }
 .content.center { display: flex; justify-content: center; padding-top: 20vh; }
 .container { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--ss-space-4); }
 ha-card { display: block; overflow: hidden; }
 .card-content { padding: 0 var(--ss-space-4) var(--ss-space-2); }
-.card-content.form { padding-top: var(--ss-space-2); }
+.card-content.form { padding-top: var(--ss-space-4); }
 .card-content.last p { margin: 0 0 var(--ss-space-2); }
 .card-text { margin: 0; padding: 0 var(--ss-space-4) var(--ss-space-2); color: var(--secondary-text-color); }
 .card-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--ss-space-2); padding: var(--ss-space-2) var(--ss-space-4) var(--ss-space-4); }
@@ -1339,7 +1461,6 @@ ha-card { display: block; overflow: hidden; }
 .row.choice:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
 .row.choice ha-checkbox, .row.choice input { pointer-events: none; }
 .row.choice .row-text { padding: var(--ss-space-2) var(--ss-space-2) var(--ss-space-2) 0; }
-.card-text.intro { padding-top: var(--ss-space-4); }
 .static-rows { padding-bottom: 0; }
 .row-end ha-icon { color: var(--secondary-text-color); padding: 0 var(--ss-space-2); }
 .row-main {
