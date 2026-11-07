@@ -9,6 +9,11 @@ NAME = "Super Skipper"
 
 SUBENTRY_TYPE_RULE = "rule"
 
+PANEL_URL_PATH = "super-skipper"
+PANEL_ELEMENT = "super-skipper-panel"
+PANEL_STATIC_URL = "/super_skipper_static"
+SIGNAL_UPDATE = f"{DOMAIN}_update"
+
 # Options of the integration entry
 CONF_SNOOZE_MINUTES = "snooze_minutes"
 CONF_COOLDOWN_SECONDS = "cooldown_seconds"

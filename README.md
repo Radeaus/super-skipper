@@ -31,8 +31,10 @@ You need Home Assistant 2025.8 or newer.
    Without the Marketplace: copy `custom_components/super_skipper` into your `custom_components` folder and restart Home Assistant.
 <!-- ha-marketplace:exclude-end -->
 2. **Add the helper.** Go to **Settings > Devices & services > Helpers > Create helper** and choose **Super Skipper**. You can also add it under **Integrations > Add integration**.
-3. **Create a rule.** Open **Settings > Devices & services > Integrations > Super Skipper**, select the three dots menu, and choose **Create rule**. The wizard asks for the keywords, the players, the action, and when the rule may act.
-4. **Repeat step 3** for every other rule. Each rule gets a row with a cog to edit it, and a menu to rename or delete it.
+3. **Create a rule.** Open **Super Skipper** in the sidebar and select **Create rule**. The page asks for the keywords, the players, the action, and when the rule may act, all on one form.
+4. **Repeat step 3** for every other rule. The page lists the rules with a switch to turn each one off, shows what each rule last did, and has the snooze button and the settings.
+
+Prefer the usual dialogs? Everything on the page is also available under **Settings > Devices & services > Integrations > Super Skipper**: the three dots menu has **Create rule**, and every rule has a cog to edit it.
 
 ## Settings
 
@@ -90,6 +92,17 @@ Under **Configure** on the integration:
 | Snooze time | 60 minutes | How long the **Snooze** button pauses every rule |
 | Cooldown between actions | 5 seconds | The least time between two actions on the same player |
 | Confirmation delay | 1 second | How long a track must play before a rule acts. Filters out metadata that flickers while a player changes tracks |
+
+## The Super Skipper page
+
+The sidebar page is where you manage everything:
+
+- **Rules**: the list of rules with their keywords, players and last match. The switch turns a rule off without deleting it. Select a rule to edit or delete it.
+- **Create rule** opens a page with one form. The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search, the station information to ignore, the persons and other conditions.
+- **Snooze** pauses every rule for the snooze time; **Resume** ends the pause early.
+- **Settings** holds the snooze time, the cooldown and the confirmation delay.
+
+The page needs an administrator account.
 
 ## Entities
 

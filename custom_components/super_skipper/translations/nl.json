@@ -3,11 +3,11 @@
     "step": {
       "user": {
         "title": "Super Skipper instellen",
-        "description": "Super Skipper let op je mediaspelers. Zodra een door jou gekozen trefwoord in de titel of artiest voorkomt, slaat het het nummer over, schakelt het tijdelijk naar een andere zender, of dempt het de speler.\n\nMaak na deze stap je eerste regel op de integratiepagina van Super Skipper."
+        "description": "Super Skipper let op je mediaspelers. Zodra een door jou gekozen trefwoord in de titel of artiest voorkomt, slaat het het nummer over, schakelt het tijdelijk naar een andere zender, of dempt het de speler.\n\nOpen na deze stap **Super Skipper** in de zijbalk om je eerste regel te maken."
       }
     },
     "abort": {
-      "single_instance_allowed": "Super Skipper is al ingesteld. Maak regels op de integratiepagina."
+      "single_instance_allowed": "Super Skipper is al ingesteld. Open het in de zijbalk om de regels te beheren."
     }
   },
   "options": {
@@ -143,7 +143,9 @@
         "players_cannot_skip": "Deze spelers kunnen geen nummers overslaan, dus de regel kan er niet op ingrijpen: {players}.",
         "players_cannot_play_media": "Deze spelers kunnen geen media uit de mediabrowser afspelen; gebruik daarvoor acties: {players}.",
         "station_required": "Kies een zender of voeg acties toe die er een starten.",
-        "fallback_required": "Kies wat er moet spelen als terugkeren mislukt, of zet **Terug na** op 0."
+        "fallback_required": "Kies wat er moet spelen als terugkeren mislukt, of zet **Terug na** op 0.",
+        "name_required": "Geef de regel een naam.",
+        "invalid_conditions": "De voorwaarden zijn niet geldig. Controleer ze en probeer het opnieuw."
       },
       "abort": {
         "reconfigure_successful": "De regel is bijgewerkt."

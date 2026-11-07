@@ -3,11 +3,11 @@
     "step": {
       "user": {
         "title": "Set up Super Skipper",
-        "description": "Super Skipper watches your media players. When a keyword you choose shows up in the title or artist, it skips the track, switches to another station for a while, or mutes the player.\n\nAfter this step, create your first rule on the Super Skipper integration page."
+        "description": "Super Skipper watches your media players. When a keyword you choose shows up in the title or artist, it skips the track, switches to another station for a while, or mutes the player.\n\nAfter this step, open **Super Skipper** in the sidebar to create your first rule."
       }
     },
     "abort": {
-      "single_instance_allowed": "Super Skipper is already set up. Create rules on its integration page."
+      "single_instance_allowed": "Super Skipper is already set up. Open it in the sidebar to manage the rules."
     }
   },
   "options": {
@@ -143,7 +143,9 @@
         "players_cannot_skip": "These players do not support skipping tracks, so the rule cannot act on them: {players}.",
         "players_cannot_play_media": "These players cannot play media chosen in the media browser, so use actions instead: {players}.",
         "station_required": "Choose a station or add actions that start one.",
-        "fallback_required": "Choose what to play if returning fails, or set **Return after** to 0."
+        "fallback_required": "Choose what to play if returning fails, or set **Return after** to 0.",
+        "name_required": "Enter a name for the rule.",
+        "invalid_conditions": "The conditions are not valid. Check them and try again."
       },
       "abort": {
         "reconfigure_successful": "The rule is updated."

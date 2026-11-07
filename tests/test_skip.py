@@ -352,3 +352,17 @@ async def test_diagnostics(hass: HomeAssistant, freezer) -> None:
     assert result["snoozed_until"] is None
     assert result["rules"][0]["data"]["keywords"] == ["ABBA"]
     assert DOMAIN in entry.domain
+
+
+async def test_broken_conditions_never_act(
+    hass: HomeAssistant, freezer, caplog
+) -> None:
+    """A rule whose stored conditions no longer validate does nothing."""
+    skips = async_mock_service(hass, "media_player", "media_next_track")
+    await setup_entry(
+        hass, make_entry(rule(**{CONF_CONDITIONS: [{"condition": "nope"}]}))
+    )
+    play(hass)
+    await advance(hass, freezer, 2)
+    assert not skips
+    assert "conditions are not valid" in caplog.text

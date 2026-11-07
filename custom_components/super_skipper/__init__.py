@@ -9,10 +9,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, SUBENTRY_TYPE_RULE
+from .const import DOMAIN, SIGNAL_UPDATE, SUBENTRY_TYPE_RULE
 from .engine import RuleWatcher, Snooze
+from .panel import async_register_panel, async_remove_panel
+from .websocket import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +36,8 @@ type SuperSkipperConfigEntry = ConfigEntry[SuperSkipperData]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Nothing to set up without an entry."""
+    """Set up the API the sidebar page talks to."""
+    async_register_websocket_commands(hass)
     return True
 
 
@@ -41,6 +45,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: SuperSkipperConfigEntry
 ) -> bool:
     """Start watching the players of every rule."""
+    await async_register_panel(hass)
     snooze = Snooze(hass, entry)
     watchers = {
         subentry.subentry_id: RuleWatcher(hass, entry, subentry, snooze)
@@ -55,6 +60,7 @@ async def async_setup_entry(
     # Rules are added, changed and removed through the entry; reload to apply.
     entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_dispatcher_send(hass, SIGNAL_UPDATE)
     return True
 
 
@@ -68,4 +74,14 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: SuperSkipperConfigEntry
 ) -> bool:
     """Stop watching."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        async_dispatcher_send(hass, SIGNAL_UPDATE)
+    return unloaded
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: SuperSkipperConfigEntry
+) -> None:
+    """Take the page out of the sidebar."""
+    async_remove_panel(hass)

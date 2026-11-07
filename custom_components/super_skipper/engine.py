@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.components.media_player import ATTR_GROUP_MEMBERS, MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import STATE_HOME
@@ -20,7 +21,9 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import condition
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
@@ -37,6 +40,7 @@ from .const import (
     DEFAULT_CONFIRM_SECONDS,
     DEFAULT_COOLDOWN_SECONDS,
     DEFAULT_SNOOZE_MINUTES,
+    SIGNAL_UPDATE,
     PresenceMode,
     RuleAction,
 )
@@ -120,6 +124,7 @@ class Snooze:
     def _notify(self) -> None:
         for listener in list(self._listeners):
             listener()
+        async_dispatcher_send(self.hass, SIGNAL_UPDATE)
 
 
 class RuleWatcher:
@@ -176,12 +181,20 @@ class RuleWatcher:
     async def async_start(self) -> None:
         """Compile the conditions and start listening."""
         if self.condition_configs:
-            validated = await condition.async_validate_conditions_config(
-                self.hass, self.condition_configs
-            )
-            self._check_conditions = await condition.async_conditions_from_config(
-                self.hass, validated, _LOGGER, self.name
-            )
+            try:
+                validated = await condition.async_validate_conditions_config(
+                    self.hass, self.condition_configs
+                )
+                self._check_conditions = await condition.async_conditions_from_config(
+                    self.hass, validated, _LOGGER, self.name
+                )
+            except (vol.Invalid, HomeAssistantError, KeyError) as err:
+                _LOGGER.error(
+                    "%s: the conditions are not valid, so the rule does nothing: %s",
+                    self.name,
+                    err,
+                )
+                self._check_conditions = lambda _variables: False
         if self.players:
             self._unsub = async_track_state_change_event(
                 self.hass, self.players, self._state_changed
@@ -208,6 +221,7 @@ class RuleWatcher:
     def _notify(self) -> None:
         for listener in list(self._listeners):
             listener()
+        async_dispatcher_send(self.hass, SIGNAL_UPDATE)
 
     @callback
     def async_set_enabled(self, enabled: bool) -> None:

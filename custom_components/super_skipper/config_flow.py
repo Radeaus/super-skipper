@@ -22,8 +22,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
     SubentryFlowResult,
 )
-from homeassistant.const import ATTR_SUPPORTED_FEATURES
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     ActionSelector,
@@ -84,24 +83,10 @@ from .const import (
     RuleAction,
 )
 from .matching import compile_keywords
+from .rules import ACTION_KEYS, clean_rule, players_without
 
 SECTION_MATCHING = "matching"
 SECTION_ADVANCED = "advanced"
-
-# The keys each action step stores, so switching action drops the others.
-ACTION_KEYS = {
-    RuleAction.SKIP: {CONF_MAX_CONSECUTIVE},
-    RuleAction.SWITCH: {
-        CONF_STATION,
-        CONF_STATION_ACTIONS,
-        CONF_RETURN_AFTER_MINUTES,
-        CONF_RETURN_FALLBACK_MEDIA,
-        CONF_RETURN_FALLBACK_ACTIONS,
-        CONF_REPEAT_MODE,
-        CONF_REPEAT_LIMIT,
-    },
-    RuleAction.MUTE: {CONF_HOLD_SECONDS, CONF_MAX_MUTE_MINUTES},
-}
 
 
 def _select(options: type[Any], key: str, multiple: bool = False) -> SelectSelector:
@@ -124,20 +109,6 @@ def _number(
     if unit:
         config["unit_of_measurement"] = unit
     return NumberSelector(config)
-
-
-def _players_without(
-    hass: HomeAssistant, players: list[str], feature: MediaPlayerEntityFeature
-) -> list[str]:
-    """Return the names of known players that lack a feature."""
-    missing = []
-    for player in players:
-        state = hass.states.get(player)
-        if state is None:
-            continue
-        if not int(state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)) & feature:
-            missing.append(state.name)
-    return missing
 
 
 class SuperSkipperConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -321,7 +292,7 @@ class RuleSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_conditions()
-        if missing := _players_without(
+        if missing := players_without(
             self.hass, self._data[CONF_PLAYERS], MediaPlayerEntityFeature.NEXT_TRACK
         ):
             errors["base"] = "players_cannot_skip"
@@ -358,7 +329,7 @@ class RuleSubentryFlow(ConfigSubentryFlow):
             ):
                 errors[CONF_RETURN_FALLBACK_MEDIA] = "fallback_required"
             if user_input.get(CONF_STATION) and (
-                missing := _players_without(
+                missing := players_without(
                     self.hass,
                     self._data[CONF_PLAYERS],
                     MediaPlayerEntityFeature.PLAY_MEDIA,
@@ -461,11 +432,12 @@ class RuleSubentryFlow(ConfigSubentryFlow):
 
     def _finish(self) -> SubentryFlowResult:
         title = self._data[CONF_NAME]
+        data = clean_rule(self._data)
         if self.source == SOURCE_USER:
-            return self.async_create_entry(title=title, data=self._data)
+            return self.async_create_entry(title=title, data=data)
         return self.async_update_and_abort(
             self._get_entry(),
             self._get_reconfigure_subentry(),
             title=title,
-            data=self._data,
+            data=data,
         )

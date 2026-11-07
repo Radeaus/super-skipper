@@ -27,4 +27,8 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install pytest-homeassistant-custom-component pytest-cov
+      # The frontend, for the sidebar page tests, in the version Home Assistant pins.
+      - run: >-
+          pip install home-assistant-frontend
+          -c "$(python -c 'import homeassistant, pathlib; print(pathlib.Path(homeassistant.__file__).parent / "package_constraints.txt")')"
       - run: pytest --cov=custom_components/super_skipper --cov-report=term-missing --cov-fail-under=95

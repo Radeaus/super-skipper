@@ -2,8 +2,10 @@
   "domain": "super_skipper",
   "name": "Super Skipper",
   "after_dependencies": [
+    "frontend",
     "logbook",
     "media_player",
+    "panel_custom",
     "sonos"
   ],
   "categories": [
@@ -14,7 +16,10 @@
     "@Radeaus"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "http",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/Radeaus/super-skipper",
   "integration_type": "helper",
   "iot_class": "calculated",
