@@ -366,3 +366,52 @@ async def test_broken_conditions_never_act(
     await advance(hass, freezer, 2)
     assert not skips
     assert "conditions are not valid" in caplog.text
+
+
+async def test_pause_does_not_make_the_same_track_new(
+    hass: HomeAssistant, freezer
+) -> None:
+    """After a pause, stale metadata of the skipped track is not skipped again."""
+    skips = async_mock_service(hass, "media_player", "media_next_track")
+    await setup_entry(hass, make_entry(rule()))
+    play(hass)
+    await advance(hass, freezer, 2)
+    assert len(skips) == 1
+    # The player pauses and flaps back to playing with the old metadata.
+    play(hass, state=MediaPlayerState.PAUSED)
+    await advance(hass, freezer, 1)
+    play(hass)
+    await advance(hass, freezer, 6)
+    assert len(skips) == 1
+    # The same track reported again within two minutes, after another track.
+    play(hass, title="Hello", artist="Adele")
+    await advance(hass, freezer, 6)
+    play(hass)
+    await advance(hass, freezer, 6)
+    assert len(skips) == 1
+    # A genuinely new matching track is still skipped.
+    play(hass, title="Waterloo")
+    await advance(hass, freezer, 6)
+    assert len(skips) == 2
+    # Much later the first track is a new occurrence again.
+    play(hass, title="Hello", artist="Adele")
+    await advance(hass, freezer, 130)
+    play(hass)
+    await advance(hass, freezer, 6)
+    assert len(skips) == 3
+
+
+async def test_buffering_waits_for_playback(hass: HomeAssistant, freezer) -> None:
+    """Metadata reported while buffering is only acted on once the player plays."""
+    skips = async_mock_service(hass, "media_player", "media_next_track")
+    await setup_entry(hass, make_entry(rule()))
+    play(hass, state=MediaPlayerState.BUFFERING)
+    await advance(hass, freezer, 4)
+    assert not skips
+    play(hass)
+    await advance(hass, freezer, 2)
+    assert len(skips) == 1
+    # A player that keeps buffering is eventually acted on anyway.
+    play(hass, title="Waterloo", state=MediaPlayerState.BUFFERING)
+    await advance(hass, freezer, 15)
+    assert len(skips) == 2

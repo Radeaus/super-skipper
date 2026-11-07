@@ -199,6 +199,10 @@ class BaseAction:
 
     # Hooks the engine calls
 
+    def repeat_is_stale(self, player: str) -> bool:
+        """Whether the track acted on, reported again soon after, is stale metadata."""
+        return True
+
     async def async_match(self, player: str, state: State, consecutive: int) -> bool:
         """A keyword started playing. Return whether something was done."""
         raise NotImplementedError
@@ -503,6 +507,11 @@ class SwitchAction(BaseAction):
         elif diversion.phase == "returning" and diversion.source.is_playing(state):
             self._cancel(player, "verify")
             self._returned(player)
+
+    def repeat_is_stale(self, player: str) -> bool:
+        # Back on the source after a return, the same track really plays again.
+        diversion = self.diversions.get(player)
+        return diversion is None or diversion.phase != "returned"
 
     async def async_match_ended(self, player: str, state: State) -> None:
         diversion = self.diversions.get(player)

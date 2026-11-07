@@ -49,6 +49,10 @@ from .matching import Matcher, MatchKey, describe, match_key
 _LOGGER = logging.getLogger(__name__)
 
 PLAYING_STATES = {MediaPlayerState.PLAYING, MediaPlayerState.BUFFERING}
+# How long a track the rule acted on is ignored when a player reports it again.
+ACTED_GRACE_SECONDS = 120
+# How many confirmation delays to wait for a buffering player to really play.
+BUFFERING_RETRIES = 10
 
 
 @dataclass
@@ -66,9 +70,15 @@ class PlayerTracking:
     """What the rule knows about one player."""
 
     key: MatchKey | None = None
+    playing: bool = False
     matched: bool = False
     consecutive: int = 0
     last_action: float = 0.0
+    # The track the rule last acted on; players report it again for a while
+    # after a skip or a pause, with stale metadata.
+    acted_key: MatchKey | None = None
+    acted_at: float = 0.0
+    buffering_retries: int = 0
     pending: CALLBACK_TYPE | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -241,13 +251,17 @@ class RuleWatcher:
         self.action.async_player_state(player, new_state)
 
         if new_state is None or new_state.state not in PLAYING_STATES:
+            # Keep the key: after a pause the same track is not a new track.
             self._cancel_pending(tracking)
-            if tracking.key is not None or tracking.matched:
-                tracking.key = None
+            if tracking.playing:
+                tracking.playing = False
                 tracking.matched = False
                 tracking.consecutive = 0
                 self.action.async_player_stopped(player)
+            if new_state is None:
+                tracking.key = None
             return
+        tracking.playing = True
 
         members = new_state.attributes.get(ATTR_GROUP_MEMBERS)
         if members and members[0] != player:
@@ -260,8 +274,16 @@ class RuleWatcher:
         if self.matcher.is_ignored(text):
             return
         tracking.key = key
+        tracking.buffering_retries = 0
         self._cancel_pending(tracking)
         matches = self.matcher.matches(text)
+        _LOGGER.debug(
+            "%s: %s plays %s (%s)",
+            self.name,
+            player,
+            describe(new_state.attributes),
+            "match" if matches else "no match",
+        )
         tracking.pending = self._confirm_later(self.confirm_delay, player, key, matches)
 
     def _confirm_later(
@@ -295,6 +317,27 @@ class RuleWatcher:
                 tracking.consecutive = 0
                 await self.action.async_match_ended(player, state)
             return
+        if state.state == MediaPlayerState.BUFFERING:
+            # Players report the previous track while they buffer the next one.
+            # Wait for real playback, but not forever.
+            if tracking.buffering_retries < BUFFERING_RETRIES:
+                tracking.buffering_retries += 1
+                tracking.pending = self._confirm_later(
+                    max(self.confirm_delay, 1.0), player, key, matches
+                )
+                return
+        if (
+            key == tracking.acted_key
+            and time.monotonic() - tracking.acted_at < ACTED_GRACE_SECONDS
+            and self.action.repeat_is_stale(player)
+        ):
+            _LOGGER.debug(
+                "%s: %s reports %s again shortly after acting on it; ignoring",
+                self.name,
+                player,
+                describe(state.attributes),
+            )
+            return
         if not self.enabled or self.snooze.active or not self._conditions_met():
             tracking.matched = False
             tracking.consecutive = 0
@@ -309,6 +352,8 @@ class RuleWatcher:
             acted = await self.action.async_match(player, state, tracking.consecutive)
         if acted:
             tracking.last_action = time.monotonic()
+            tracking.acted_key = key
+            tracking.acted_at = tracking.last_action
             self.match_count += 1
             self.last_match = LastMatch(
                 player=player,
