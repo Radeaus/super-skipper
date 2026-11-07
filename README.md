@@ -135,7 +135,7 @@ While the alternative station plays, Super Skipper leaves the player alone. If y
 - Nothing happens: check the rule's **Enabled** switch, the **Snoozed until** sensor, and the persons and conditions of the rule. Then look at the **Last match** sensor and the logbook.
 - A rule skips too much: switch **Match** to whole words, or shorten the keyword list.
 - A rule unmutes too early: raise **Unmute after**, or add the station's texts to **Ignore station information**.
-- Turn on debug logging for `custom_components.super_skipper` to see every decision.
+- Turn on **Debug logging** on the Super Skipper page (or **Enable debug logging** in the three dots menu of the integration) to see every track the players report and every decision in **Settings > System > Logs**. It stays on until the next restart.
 
 ## Removal
 

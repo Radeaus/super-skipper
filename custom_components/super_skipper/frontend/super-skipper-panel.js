@@ -44,6 +44,11 @@ const STRINGS = {
     players: "Players",
     keywords: "Keywords",
     unknown_rule: "This rule does not exist (anymore).",
+    debug: "Debug logging",
+    debug_text:
+      "Writes every track the players report and every decision to the Home Assistant log, until the next restart. Turn it on when a rule does something unexpected.",
+    debug_unavailable: "Debug logging needs the logger integration, which is part of the default configuration.",
+    open_logs: "Open logs",
   },
   nl: {
     title: "Super Skipper",
@@ -80,6 +85,11 @@ const STRINGS = {
     players: "Spelers",
     keywords: "Trefwoorden",
     unknown_rule: "Deze regel bestaat niet (meer).",
+    debug: "Debug-logging",
+    debug_text:
+      "Schrijft elk nummer dat de spelers melden en elke beslissing naar het logboek van Home Assistant, tot de volgende herstart. Zet dit aan als een regel iets onverwachts doet.",
+    debug_unavailable: "Debug-logging heeft de logger-integratie nodig; die hoort bij de standaardconfiguratie.",
+    open_logs: "Log openen",
   },
 };
 
@@ -203,6 +213,7 @@ class SuperSkipperPanel extends HTMLElement {
     this._unsubs = {};
     this._ruleForm = null;
     this._optionsForm = null;
+    this._debug = null;
     this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
     this.shadowRoot.addEventListener("change", (ev) => this._onChange(ev));
     loadComponents().then(() => {
@@ -223,6 +234,7 @@ class SuperSkipperPanel extends HTMLElement {
     if (first) {
       this._subscribe();
       this._loadTranslations();
+      this._loadDebug();
       this._render();
       return;
     }
@@ -310,6 +322,38 @@ class SuperSkipperPanel extends HTMLElement {
     }
     this._translated = true;
     this._render();
+  }
+
+  _debugAvailable() {
+    return (this._hass?.config?.components || []).includes("logger");
+  }
+
+  async _loadDebug() {
+    if (!this._debugAvailable()) return;
+    try {
+      const info = await this._hass.callWS({ type: "logger/log_info" });
+      const entry = info.find((item) => item.domain === DOMAIN);
+      const debug = !!entry && entry.level > 0 && entry.level <= 10;
+      if (debug !== this._debug) {
+        this._debug = debug;
+        this._render();
+      }
+    } catch (_err) {
+      // Leave the switch as it is.
+    }
+  }
+
+  async _setDebug(enabled) {
+    await this._run("debug", async () => {
+      await this._hass.callWS({
+        type: "logger/integration_log_level",
+        integration: DOMAIN,
+        level: enabled ? "DEBUG" : "NOTSET",
+        persistence: "once",
+      });
+      this._debug = enabled;
+    });
+    this._loadDebug();
   }
 
   _navigate(path, replace = false) {
@@ -427,8 +471,14 @@ class SuperSkipperPanel extends HTMLElement {
   }
 
   _onChange(ev) {
-    const target = ev.composedPath().find((node) => node.dataset?.field === "enabled");
+    const target = ev.composedPath().find((node) => node.dataset?.field);
     if (!target) return;
+    if (target.dataset.field === "debug") {
+      ev.stopPropagation();
+      this._setDebug(target.checked);
+      return;
+    }
+    if (target.dataset.field !== "enabled") return;
     ev.stopPropagation();
     const enabled = target.checked;
     this._run("enabled" + target.dataset.id, () =>
@@ -754,7 +804,24 @@ class SuperSkipperPanel extends HTMLElement {
           <div class="card-content"><div id="options-form"></div></div>
           <div class="card-actions">${this._button(this._t("save"), "save-options", { busy: this._busy.has("options"), disabled: !this._optionsDraft })}</div>
         </ha-card>
+        ${this._debugCard()}
       </div></div>`;
+  }
+
+  _debugCard() {
+    if (!this._debugAvailable()) {
+      return `<ha-card header="${esc(this._t("debug"))}"><p class="card-text last">${esc(this._t("debug_unavailable"))}</p></ha-card>`;
+    }
+    return `<ha-card header="${esc(this._t("debug"))}">
+      <div class="row">
+        <div class="row-main static">
+          <span class="row-icon">${icon("mdi:bug-outline")}</span>
+          <span class="row-text"><span class="headline">${esc(this._t("debug"))}</span><span class="supporting">${esc(this._t("debug_text"))}</span></span>
+        </div>
+        <span class="row-end"><ha-switch data-field="debug" ${this._debug ? "checked" : ""} ${this._busy.has("debug") || this._debug === null ? "disabled" : ""} aria-label="${esc(this._t("debug"))}"></ha-switch></span>
+      </div>
+      <div class="card-actions">${this._link(this._t("open_logs"), "/config/logs?domain=" + DOMAIN, { iconName: "mdi:text-box-search-outline" })}</div>
+    </ha-card>`;
   }
 
   _renderRule(view) {
@@ -857,6 +924,9 @@ ha-card { display: block; overflow: hidden; }
   font: inherit; text-align: start; cursor: pointer; border-radius: var(--ha-border-radius-md, 8px);
 }
 .row-main:hover { background: var(--secondary-background-color); }
+.row-main.static { cursor: default; }
+.row-main.static:hover { background: none; }
+.card-text.last { padding-bottom: var(--ss-space-4); }
 .row-main:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
 .row-icon { color: var(--state-icon-color, var(--secondary-text-color)); display: flex; }
 .row-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
