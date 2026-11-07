@@ -44,6 +44,7 @@ from .const import (
     PresenceMode,
     RuleAction,
 )
+from .history import History
 from .matching import Matcher, MatchKey, describe, match_key
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,16 +54,6 @@ PLAYING_STATES = {MediaPlayerState.PLAYING, MediaPlayerState.BUFFERING}
 ACTED_GRACE_SECONDS = 120
 # How many confirmation delays to wait for a buffering player to really play.
 BUFFERING_RETRIES = 10
-
-
-@dataclass
-class LastMatch:
-    """What the rule last acted on."""
-
-    player: str
-    description: str
-    action: RuleAction
-    when: datetime
 
 
 @dataclass
@@ -146,11 +137,13 @@ class RuleWatcher:
         entry: ConfigEntry,
         subentry: ConfigSubentry,
         snooze: Snooze,
+        history: History,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.subentry = subentry
         self.snooze = snooze
+        self.history = history
         data = subentry.data
         self.name = subentry.title
         self.players: list[str] = list(data.get(CONF_PLAYERS, []))
@@ -166,8 +159,7 @@ class RuleWatcher:
         )
         self._check_conditions: Callable[[Any], bool] | None = None
         self.enabled = True
-        self.last_match: LastMatch | None = None
-        self.match_count = 0
+        self.action.on_log = self._log_event
         self._tracking: dict[str, PlayerTracking] = {}
         self._unsub: CALLBACK_TYPE | None = None
         self._listeners: list[Callable[[], None]] = []
@@ -175,6 +167,25 @@ class RuleWatcher:
     @property
     def subentry_id(self) -> str:
         return self.subentry.subentry_id
+
+    @property
+    def last_match(self) -> dict[str, Any] | None:
+        """The track the rule last acted on."""
+        return self.history.rule(self.subentry_id)["last_match"]
+
+    @property
+    def match_count(self) -> int:
+        return self.history.rule(self.subentry_id)["count"]
+
+    @property
+    def events(self) -> list[dict[str, Any]]:
+        """The recent activity of the rule, oldest first."""
+        return self.history.rule(self.subentry_id)["events"]
+
+    @callback
+    def _log_event(self, player: str, message: str) -> None:
+        self.history.record_event(self.subentry_id, player, message)
+        self._notify()
 
     @property
     def cooldown(self) -> float:
@@ -354,12 +365,11 @@ class RuleWatcher:
             tracking.last_action = time.monotonic()
             tracking.acted_key = key
             tracking.acted_at = tracking.last_action
-            self.match_count += 1
-            self.last_match = LastMatch(
-                player=player,
-                description=describe(state.attributes),
-                action=self.rule_action,
-                when=dt_util.utcnow(),
+            self.history.record_match(
+                self.subentry_id,
+                player,
+                describe(state.attributes),
+                self.action.kind_for(player),
             )
             self._notify()
 

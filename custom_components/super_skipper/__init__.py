@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, SIGNAL_UPDATE, SUBENTRY_TYPE_RULE
 from .engine import RuleWatcher, Snooze
+from .history import History
 from .panel import async_register_panel, async_remove_panel
 from .websocket import async_register_websocket_commands
 
@@ -30,6 +31,7 @@ class SuperSkipperData:
 
     snooze: Snooze
     watchers: dict[str, RuleWatcher]
+    history: History
 
 
 type SuperSkipperConfigEntry = ConfigEntry[SuperSkipperData]
@@ -47,12 +49,21 @@ async def async_setup_entry(
     """Start watching the players of every rule."""
     await async_register_panel(hass)
     snooze = Snooze(hass, entry)
-    watchers = {
-        subentry.subentry_id: RuleWatcher(hass, entry, subentry, snooze)
+    rule_ids = {
+        subentry.subentry_id
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_TYPE_RULE
     }
-    entry.runtime_data = SuperSkipperData(snooze=snooze, watchers=watchers)
+    history = History(hass)
+    await history.async_load(rule_ids)
+    watchers = {
+        subentry.subentry_id: RuleWatcher(hass, entry, subentry, snooze, history)
+        for subentry in entry.subentries.values()
+        if subentry.subentry_id in rule_ids
+    }
+    entry.runtime_data = SuperSkipperData(
+        snooze=snooze, watchers=watchers, history=history
+    )
     for watcher in watchers.values():
         await watcher.async_start()
         entry.async_on_unload(watcher.async_stop)

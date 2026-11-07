@@ -12,6 +12,7 @@ You create **rules**. Each rule has keywords, one or more media players, and an 
 
 | Action | What happens |
 | --- | --- |
+| **Automatic** (default) | Looks at what plays on each player. A track (Spotify, Music Assistant, a Sonos queue, anything with a known length) is skipped. A radio stream goes to the station you choose, or is muted until the keyword is gone when no station is set. |
 | **Skip to the next track** | Calls `media_player.media_next_track`. For Spotify, Music Assistant, Sonos queues, and any other player that can skip. |
 | **Switch station** | Plays a station you pick from the media browser (the **Radio Browser** source lists thousands of stations), or runs your own actions. After the time you set, Super Skipper plays what was on before. |
 | **Mute until it is over** | Mutes the player while the keyword plays and unmutes once something else has played for a moment. |
@@ -45,7 +46,7 @@ Prefer the usual dialogs? Everything on the page is also available under **Setti
 | Name | Shown in the rule list and in the logbook |
 | Keywords | Words or phrases to look for. Press Enter after each one |
 | Media players | The rule acts on each of these players separately |
-| Action | Skip, switch station, or mute |
+| Action | Automatic (default), skip, switch station, or mute. Automatic asks for the skip settings and the (optional) station settings |
 | Match | **Whole words** (default) matches `ABBA` in `ABBA - Waterloo` but not in `Kabbalah`. **Any part of a word** matches both. **Regular expression** treats each keyword as a pattern. Case and accents never matter |
 | Look in | Title and artist by default; album and channel optional. Radio stations often put the station name in the channel or artist attribute |
 | Ignore station information | Texts a station shows between songs, like its name or slogan. Super Skipper then treats them as station information instead of a new track, so a mute is not lifted and a switch is not repeated |
@@ -98,6 +99,7 @@ Under **Configure** on the integration:
 The sidebar page is where you manage everything:
 
 - **Rules**: the list of rules with their keywords, players and last match. The switch turns a rule off without deleting it. Select a rule to edit or delete it.
+- **Recent activity** on a rule: the last thirty things the rule did (skipped, switched, returned, muted, hit a limit, and why), kept across restarts.
 - **Create rule** opens a page with one form. The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search, the station information to ignore, the persons and other conditions.
 - **Snooze** pauses every rule for the snooze time; **Resume** ends the pause early.
 - **Settings** holds the snooze time, the cooldown and the confirmation delay.
@@ -132,10 +134,11 @@ While the alternative station plays, Super Skipper leaves the player alone. If y
 
 ## Troubleshooting
 
-- Nothing happens: check the rule's **Enabled** switch, the **Snoozed until** sensor, and the persons and conditions of the rule. Then look at the **Last match** sensor and the logbook.
+- Nothing happens: check the rule's **Enabled** switch, the **Snoozed until** sensor, and the persons and conditions of the rule. Then open the rule on the Super Skipper page: **Recent activity** tells what it did and why.
+- A matching song still played: with **Skips in a row** at its default of 5, the rule stops after five skipped tracks in a row (an album or a special) until something else plays. Raise it or set it to 0. Players that refresh slowly (Spotify every 30 seconds) can also let a short song through.
 - A rule skips too much: switch **Match** to whole words, or shorten the keyword list.
 - A rule unmutes too early: raise **Unmute after**, or add the station's texts to **Ignore station information**.
-- Turn on **Debug logging** on the Super Skipper page (or **Enable debug logging** in the three dots menu of the integration) to see every track the players report and every decision in **Settings > System > Logs**. It stays on until the next restart.
+- Turn on **Debug logging** on the Super Skipper page (or **Enable debug logging** in the three dots menu of the integration) to see every track the players report and every decision. Debug lines are not in the list on **Settings > System > Logs**; select **Load full logs** there (or read `home-assistant.log`). It stays on until the next restart.
 
 ## Removal
 

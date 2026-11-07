@@ -23,14 +23,8 @@ async def async_get_config_entry_diagnostics(
                 "data": dict(watcher.subentry.data),
                 "enabled": watcher.enabled,
                 "matches": watcher.match_count,
-                "last_match": {
-                    "player": last.player,
-                    "description": last.description,
-                    "action": str(last.action),
-                    "when": last.when.isoformat(),
-                }
-                if last
-                else None,
+                "last_match": last,
+                "events": list(watcher.events),
                 "players": {
                     player: (
                         state.state if (state := hass.states.get(player)) else None

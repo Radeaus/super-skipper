@@ -48,7 +48,7 @@
             "name": "Zichtbaar in de lijst met regels en in het logboek, bijvoorbeeld `Geen ABBA op de radio`.",
             "keywords": "Woorden of zinnen om op te letten, zoals een artiest, een titel, of `Advertisement`. Druk na elk trefwoord op Enter.",
             "players": "De regel werkt op elk van deze spelers apart.",
-            "action": "**Overslaan** gaat naar het volgende nummer. **Andere zender** speelt iets anders en keert later terug. **Dempen** zet het geluid uit tot het trefwoord weg is."
+            "action": "**Automatisch** kijkt naar wat er speelt: een nummer wordt overgeslagen; een radiostream gaat naar de zender die je in de volgende stappen kiest, of wordt gedempt tot het trefwoord weg is als er geen zender is ingesteld. **Overslaan** gaat altijd naar het volgende nummer. **Andere zender** speelt altijd iets anders en keert later terug. **Dempen** zet het geluid uit tot het trefwoord weg is."
           },
           "sections": {
             "matching": {
@@ -79,7 +79,7 @@
         },
         "switch": {
           "title": "Andere zender",
-          "description": "Kies wat er in plaats daarvan moet spelen. Kies een zender in de mediabrowser (de bron **Radio Browser** bevat duizenden zenders) of voer je eigen acties uit, bijvoorbeeld een script dat een zender start.\n\n{players}",
+          "description": "Kies wat er in plaats daarvan moet spelen. Kies een zender in de mediabrowser (de bron **Radio Browser** bevat duizenden zenders) of voer je eigen acties uit, bijvoorbeeld een script dat een zender start. Bij de automatische actie is dit optioneel: zonder zender wordt een radiostream gedempt tot het trefwoord weg is.\n\n{players}",
           "data": {
             "station": "Zender",
             "station_actions": "Of voer deze acties uit",
@@ -155,6 +155,7 @@
   "selector": {
     "action": {
       "options": {
+        "auto": "Automatisch",
         "skip": "Naar het volgende nummer",
         "switch": "Andere zender",
         "mute": "Dempen tot het voorbij is"

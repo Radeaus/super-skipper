@@ -142,10 +142,7 @@ async def test_manage_rules_from_panel(
         }
     )
     msg = await _result(client)
-    assert msg["result"]["errors"] == {
-        "station": "station_required",
-        "return_fallback_media": "fallback_required",
-    }
+    assert msg["result"]["errors"] == {"station": "station_required"}
     await client.send_json_auto_id(
         {
             "type": f"{DOMAIN}/save_rule",

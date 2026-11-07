@@ -42,15 +42,15 @@ class RuleLastMatchSensor(RuleEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         last = self.watcher.last_match
-        return last.description if last else None
+        return last["description"] if last else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         last = self.watcher.last_match
         return {
-            "player": last.player if last else None,
-            "action": str(last.action) if last else None,
-            "matched_at": last.when.isoformat() if last else None,
+            "player": last["player"] if last else None,
+            "action": last["action"] if last else None,
+            "matched_at": last["when"] if last else None,
             "matches": self.watcher.match_count,
         }
 

@@ -192,15 +192,14 @@ async def test_create_switch_rule(hass: HomeAssistant) -> None:
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], base
     )
+    assert result["errors"] == {CONF_STATION: "station_required"}
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**base, CONF_STATION: MEDIA}
+    )
     assert result["errors"] == {
-        CONF_STATION: "station_required",
+        CONF_STATION: "players_cannot_play_media",
         CONF_RETURN_FALLBACK_MEDIA: "fallback_required",
     }
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {**base, CONF_STATION: MEDIA, CONF_RETURN_FALLBACK_MEDIA: MEDIA},
-    )
-    assert result["errors"] == {CONF_STATION: "players_cannot_play_media"}
     assert result["description_placeholders"] == {"players": "Living Room"}
 
     actions = [{"action": "script.turn_on", "target": {"entity_id": "script.radio"}}]
@@ -259,3 +258,36 @@ async def test_reconfigure_rule(hass: HomeAssistant) -> None:
     state = hass.states.get("switch.no_abba_enabled")
     assert state is not None
     assert state.attributes["friendly_name"] == "Mute ABBA Enabled"
+
+
+async def test_create_automatic_rule(hass: HomeAssistant) -> None:
+    """The automatic action asks the skip and the switch settings; a station is optional."""
+    entry = await setup_entry(hass, make_entry())
+    result = await _start(hass, entry)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**BASICS, CONF_ACTION: "auto"}
+    )
+    assert result["step_id"] == "skip"
+    assert result["errors"] == {}
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_MAX_CONSECUTIVE: 4}
+    )
+    assert result["step_id"] == "switch"
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_RETURN_AFTER_MINUTES: 5,
+            CONF_REPEAT_MODE: "limited",
+            CONF_REPEAT_LIMIT: 5,
+        },
+    )
+    assert result["step_id"] == "conditions"
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {CONF_PERSONS: [], CONF_PRESENCE_MODE: "any_home", "advanced": {}},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_ACTION] == "auto"
+    assert result["data"][CONF_MAX_CONSECUTIVE] == 4
+    assert result["data"][CONF_RETURN_AFTER_MINUTES] == 5
+    assert CONF_STATION not in result["data"]

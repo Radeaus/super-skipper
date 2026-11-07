@@ -123,14 +123,8 @@ def build_state(hass: HomeAssistant) -> dict[str, Any]:
                 "data": dict(subentry.data),
                 "enabled": watcher.enabled if watcher else True,
                 "matches": watcher.match_count if watcher else 0,
-                "last_match": {
-                    "player": last.player,
-                    "description": last.description,
-                    "action": str(last.action),
-                    "when": last.when.isoformat(),
-                }
-                if last
-                else None,
+                "last_match": last,
+                "events": list(watcher.events[-20:]) if watcher else [],
                 "switch_entity": registry.async_get_entity_id(
                     SWITCH_DOMAIN, DOMAIN, f"{subentry.subentry_id}_enabled"
                 ),

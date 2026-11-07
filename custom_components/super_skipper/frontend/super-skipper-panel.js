@@ -44,6 +44,8 @@ const STRINGS = {
     players: "Players",
     keywords: "Keywords",
     unknown_rule: "This rule does not exist (anymore).",
+    activity: "Recent activity",
+    activity_none: "Nothing happened yet. Activity shows up here as soon as the rule acts, with the reason.",
     debug: "Debug logging",
     debug_text:
       "Writes every track the players report and every decision to the Home Assistant log, until the next restart. Turn it on when a rule does something unexpected.",
@@ -85,6 +87,8 @@ const STRINGS = {
     players: "Spelers",
     keywords: "Trefwoorden",
     unknown_rule: "Deze regel bestaat niet (meer).",
+    activity: "Recente activiteit",
+    activity_none: "Er is nog niets gebeurd. Zodra de regel ingrijpt verschijnt het hier, met de reden.",
     debug: "Debug-logging",
     debug_text:
       "Schrijft elk nummer dat de spelers melden en elke beslissing naar het logboek van Home Assistant, tot de volgende herstart. Zet dit aan als een regel iets onverwachts doet.",
@@ -93,8 +97,8 @@ const STRINGS = {
   },
 };
 
-const ACTION_ICONS = { skip: "mdi:skip-next", switch: "mdi:radio", mute: "mdi:volume-off" };
-const ACTIONS = ["skip", "switch", "mute"];
+const ACTION_ICONS = { auto: "mdi:auto-fix", skip: "mdi:skip-next", switch: "mdi:radio", mute: "mdi:volume-off" };
+const ACTIONS = ["auto", "skip", "switch", "mute"];
 const MATCH_MODES = ["whole_word", "substring", "regex"];
 const MATCH_FIELDS = ["title", "artist", "album", "channel"];
 const REPEAT_MODES = ["limited", "unlimited", "once"];
@@ -104,7 +108,7 @@ const DEFAULT_RULE = {
   name: "",
   keywords: [],
   players: [],
-  action: "skip",
+  action: "auto",
   match_mode: "whole_word",
   match_fields: ["title", "artist"],
   ignore_texts: [],
@@ -567,10 +571,9 @@ class SuperSkipperPanel extends HTMLElement {
       this._localize(`config_subentries.rule.step.${step}.sections.${section}.name`) || section;
     const hasError = (...names) => names.some((name) => this._errors[name]);
 
-    const action = ACTIONS.includes(draft.action) ? draft.action : "skip";
-    const specific = {
-      skip: [{ name: "max_consecutive", selector: number(0, 50) }],
-      switch: [
+    const action = ACTIONS.includes(draft.action) ? draft.action : "auto";
+    const skipFields = [{ name: "max_consecutive", selector: number(0, 50) }];
+    const switchFields = [
         { name: "station", selector: { media: {} } },
         { name: "station_actions", selector: { action: {} } },
         { name: "return_after_minutes", required: true, selector: number(0, 1440, "min") },
@@ -578,7 +581,11 @@ class SuperSkipperPanel extends HTMLElement {
         { name: "return_fallback_actions", selector: { action: {} } },
         { name: "repeat_mode", required: true, selector: select("repeat_mode", REPEAT_MODES) },
         { name: "repeat_limit", required: true, selector: number(1, 50) },
-      ],
+      ];
+    const specific = {
+      auto: [...skipFields, ...switchFields],
+      skip: skipFields,
+      switch: switchFields,
       mute: [
         { name: "hold_seconds", required: true, selector: number(0, 300, "s") },
         { name: "max_mute_minutes", required: true, selector: number(0, 180, "min") },
@@ -676,6 +683,22 @@ class SuperSkipperPanel extends HTMLElement {
     const view = this._view();
     if (view.id === null) return this._draft?.name || this._t("create_rule");
     return this._draft?.name || this._rule(view.id)?.title || this._t("edit_rule");
+  }
+
+  _activityCard(rule) {
+    const last = rule.last_match
+      ? `<p>${esc(this._t("last_match"))}: ${esc(this._t("last_match_text", { description: rule.last_match.description, player: this._playerName(rule.last_match.player) }))}<br>
+         <span class="hint">${esc(this._formatTime(rule.last_match.when))} · ${esc(this._t("matches", { count: rule.matches }))}</span></p>`
+      : "";
+    const events = (rule.events || []).slice().reverse();
+    const list = events.length
+      ? `<ul class="activity">${events
+          .map(
+            (event) => `<li><span class="when">${esc(this._formatTime(event.when))}</span><span class="what">${esc(event.message)}</span></li>`
+          )
+          .join("")}</ul>`
+      : `<p class="hint">${esc(this._t("activity_none"))}</p>`;
+    return `<ha-card header="${esc(this._t("activity"))}"><div class="card-content last">${last}${list}</div></ha-card>`;
   }
 
   // Rendering
@@ -837,14 +860,7 @@ class SuperSkipperPanel extends HTMLElement {
             .join("")}</ul>`
         )
       : "";
-    const lastMatch = rule
-      ? `<ha-card header="${esc(this._t("last_match"))}"><div class="card-content last">${
-          rule.last_match
-            ? `<p>${esc(this._t("last_match_text", { description: rule.last_match.description, player: this._playerName(rule.last_match.player) }))}<br>
-               <span class="hint">${esc(this._formatTime(rule.last_match.when))} · ${esc(this._t("matches", { count: rule.matches }))}</span></p>`
-            : `<p class="hint">${esc(this._t("last_match_none"))}</p>`
-        }</div></ha-card>`
-      : "";
+    const lastMatch = rule ? this._activityCard(rule) : "";
     const remove = rule
       ? `<ha-card header="${esc(this._t("delete_rule"))}"><p class="card-text">${esc(this._t("delete_text"))}</p>${
           this._confirmDelete
@@ -938,6 +954,11 @@ ha-alert { display: block; }
 .alert-actions { display: flex; gap: var(--ss-space-2); flex-wrap: wrap; }
 .alert-actions ha-button { white-space: nowrap; }
 .errors { margin: 0; padding-inline-start: var(--ss-space-4); }
+.activity { list-style: none; margin: 0 0 var(--ss-space-2); padding: 0; }
+.activity li { display: flex; gap: var(--ss-space-3); padding: var(--ss-space-1) 0; border-top: 1px solid var(--divider-color); }
+.activity .when { flex: none; width: 11em; color: var(--secondary-text-color); font-size: var(--ha-font-size-s, 12px); font-variant-numeric: tabular-nums; }
+.activity .what { flex: 1; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .activity li { flex-direction: column; gap: 0; } .activity .when { width: auto; } }
 .hint { font-size: var(--ha-font-size-s, 12px); color: var(--secondary-text-color); }
 a.button-link { text-decoration: none; }
 ha-form { display: block; }

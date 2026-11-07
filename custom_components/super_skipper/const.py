@@ -66,6 +66,7 @@ REFRESH_AFTER_SKIP_SECONDS = 2
 class RuleAction(StrEnum):
     """What a rule does when a keyword plays."""
 
+    AUTO = "auto"
     SKIP = "skip"
     SWITCH = "switch"
     MUTE = "mute"

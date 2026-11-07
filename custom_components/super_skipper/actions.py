@@ -15,12 +15,14 @@ from homeassistant.components.media_player import (
     ATTR_INPUT_SOURCE_LIST,
     ATTR_MEDIA_CONTENT_ID,
     ATTR_MEDIA_CONTENT_TYPE,
+    ATTR_MEDIA_DURATION,
     ATTR_MEDIA_VOLUME_LEVEL,
     ATTR_MEDIA_VOLUME_MUTED,
     SERVICE_PLAY_MEDIA,
     SERVICE_SELECT_SOURCE,
     MediaPlayerEntityFeature,
     MediaPlayerState,
+    MediaType,
 )
 from homeassistant.components.media_player import (
     DOMAIN as MEDIA_PLAYER_DOMAIN,
@@ -97,7 +99,9 @@ def friendly_name(hass: HomeAssistant, entity_id: str) -> str:
 
 
 class BaseAction:
-    """Common parts of the three actions."""
+    """Common parts of the actions."""
+
+    kind = "none"
 
     def __init__(
         self, hass: HomeAssistant, rule_name: str, data: Mapping[str, Any]
@@ -105,6 +109,7 @@ class BaseAction:
         self.hass = hass
         self.rule_name = rule_name
         self.data = data
+        self.on_log: Callable[[str, str], None] | None = None
         self._timers: dict[tuple[str, str], CALLBACK_TYPE] = {}
 
     def _schedule(
@@ -139,9 +144,15 @@ class BaseAction:
         self._timers.clear()
 
     def log(self, player: str, message: str) -> None:
-        """Write a line to the logbook."""
+        """Write a line to the logbook and to the activity of the rule."""
         _LOGGER.debug("%s: %s (%s)", self.rule_name, message, player)
         async_log_entry(self.hass, NAME, f"{self.rule_name}: {message}", DOMAIN, player)
+        if self.on_log is not None:
+            self.on_log(player, message)
+
+    def kind_for(self, player: str) -> str:
+        """Which action was taken for the player, for the last match."""
+        return self.kind
 
     async def _call(
         self, service: str, data: dict[str, Any], domain: str = MEDIA_PLAYER_DOMAIN
@@ -222,6 +233,8 @@ class BaseAction:
 
 class SkipAction(BaseAction):
     """Go to the next track."""
+
+    kind = RuleAction.SKIP.value
 
     def __init__(
         self, hass: HomeAssistant, rule_name: str, data: Mapping[str, Any]
@@ -333,6 +346,8 @@ class Diversion:
 
 class SwitchAction(BaseAction):
     """Play another station, and come back later."""
+
+    kind = RuleAction.SWITCH.value
 
     def __init__(
         self, hass: HomeAssistant, rule_name: str, data: Mapping[str, Any]
@@ -537,6 +552,8 @@ class SwitchAction(BaseAction):
 class MuteAction(BaseAction):
     """Mute the player until the keyword is gone."""
 
+    kind = RuleAction.MUTE.value
+
     def __init__(
         self, hass: HomeAssistant, rule_name: str, data: Mapping[str, Any]
     ) -> None:
@@ -626,7 +643,106 @@ class MuteAction(BaseAction):
             self.hass.async_create_task(self._unmute(player, ""))
 
 
+LIVE_STREAM_ID = re.compile(
+    r"^(media-source://radio_browser|x-sonosapi-stream:|x-sonosapi-radio:|x-sonosapi-hls:"
+    r"|x-rincon-mp3radio://|library://radio/|aac://|hls://|icy://)",
+    re.IGNORECASE,
+)
+
+
+def is_live_stream(state: State) -> bool:
+    """Whether a player plays a radio stream rather than a track."""
+    attributes = state.attributes
+    content_id = str(attributes.get(ATTR_MEDIA_CONTENT_ID) or "")
+    if content_id.startswith("spotify:"):
+        return False
+    if attributes.get(ATTR_MEDIA_CONTENT_TYPE) == MediaType.CHANNEL:
+        return True
+    if LIVE_STREAM_ID.match(content_id):
+        return True
+    # Tracks have a known length; streams do not.
+    return not attributes.get(ATTR_MEDIA_DURATION)
+
+
+class AutoAction(BaseAction):
+    """Skip tracks; switch station on radio, or mute when no station is set."""
+
+    kind = RuleAction.AUTO.value
+
+    def __init__(
+        self, hass: HomeAssistant, rule_name: str, data: Mapping[str, Any]
+    ) -> None:
+        super().__init__(hass, rule_name, data)
+        self.skip = SkipAction(hass, rule_name, data)
+        self.switch = SwitchAction(hass, rule_name, data)
+        self.mute = MuteAction(hass, rule_name, data)
+        self.has_station = bool(
+            data.get(CONF_STATION) or data.get(CONF_STATION_ACTIONS)
+        )
+        self._chosen: dict[str, BaseAction] = {}
+        self._actions = (self.skip, self.switch, self.mute)
+        self.on_log = self._on_log
+
+    @property
+    def on_log(self) -> Callable[[str, str], None] | None:  # type: ignore[override]
+        return self._on_log
+
+    @on_log.setter
+    def on_log(self, value: Callable[[str, str], None] | None) -> None:
+        self._on_log = value
+        # The base class sets this before the three actions exist.
+        for action in getattr(self, "_actions", ()):
+            action.on_log = value
+
+    def _choose(self, player: str, state: State) -> BaseAction:
+        if is_live_stream(state) or not supports(
+            state, MediaPlayerEntityFeature.NEXT_TRACK
+        ):
+            chosen = self.switch if self.has_station else self.mute
+        else:
+            chosen = self.skip
+        self._chosen[player] = chosen
+        return chosen
+
+    def kind_for(self, player: str) -> str:
+        chosen = self._chosen.get(player)
+        return chosen.kind if chosen else self.kind
+
+    def repeat_is_stale(self, player: str) -> bool:
+        return self.switch.repeat_is_stale(player)
+
+    async def async_match(self, player: str, state: State, consecutive: int) -> bool:
+        chosen = self._choose(player, state)
+        _LOGGER.debug(
+            "%s: %s plays a %s; using %s",
+            self.rule_name,
+            player,
+            "stream" if chosen is not self.skip else "track",
+            chosen.kind,
+        )
+        return await chosen.async_match(player, state, consecutive)
+
+    async def async_match_ended(self, player: str, state: State) -> None:
+        for action in (self.skip, self.switch, self.mute):
+            await action.async_match_ended(player, state)
+
+    @callback
+    def async_player_state(self, player: str, state: State | None) -> None:
+        self.switch.async_player_state(player, state)
+
+    @callback
+    def async_player_stopped(self, player: str) -> None:
+        for action in (self.skip, self.switch, self.mute):
+            action.async_player_stopped(player)
+
+    @callback
+    def async_shutdown(self) -> None:
+        for action in (self.skip, self.switch, self.mute):
+            action.async_shutdown()
+
+
 ACTIONS: dict[RuleAction, type[BaseAction]] = {
+    RuleAction.AUTO: AutoAction,
     RuleAction.SKIP: SkipAction,
     RuleAction.SWITCH: SwitchAction,
     RuleAction.MUTE: MuteAction,

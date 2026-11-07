@@ -48,7 +48,7 @@
             "name": "Shown in the rule list and in the logbook, for example `No ABBA on the radio`.",
             "keywords": "Words or phrases to look for, like an artist, a song title, or `Advertisement`. Press Enter after each one.",
             "players": "The rule acts on each of these players separately.",
-            "action": "**Skip** goes to the next track. **Switch station** plays something else and returns later. **Mute** silences the player until the keyword is gone."
+            "action": "**Automatic** looks at what plays: a track is skipped; a radio stream goes to the station you choose in the next steps, or is muted until the keyword is gone when no station is set. **Skip** always goes to the next track. **Switch station** always plays something else and returns later. **Mute** silences the player until the keyword is gone."
           },
           "sections": {
             "matching": {
@@ -79,7 +79,7 @@
         },
         "switch": {
           "title": "Switch station",
-          "description": "Choose what to play instead. Pick a station from the media browser (the **Radio Browser** source lists thousands of stations) or run your own actions, for example a script that starts a station.\n\n{players}",
+          "description": "Choose what to play instead. Pick a station from the media browser (the **Radio Browser** source lists thousands of stations) or run your own actions, for example a script that starts a station. With the automatic action this is optional: without a station, a radio stream is muted until the keyword is gone.\n\n{players}",
           "data": {
             "station": "Station",
             "station_actions": "Or run these actions",
@@ -155,6 +155,7 @@
   "selector": {
     "action": {
       "options": {
+        "auto": "Automatic",
         "skip": "Skip to the next track",
         "switch": "Switch station",
         "mute": "Mute until it is over"

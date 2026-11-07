@@ -58,6 +58,9 @@ ACTION_KEYS: dict[RuleAction, set[str]] = {
     },
     RuleAction.MUTE: {CONF_HOLD_SECONDS, CONF_MAX_MUTE_MINUTES},
 }
+ACTION_KEYS[RuleAction.AUTO] = (
+    ACTION_KEYS[RuleAction.SKIP] | ACTION_KEYS[RuleAction.SWITCH]
+)
 
 MEDIA_SCHEMA = vol.Schema(
     {
@@ -121,9 +124,10 @@ def players_without(
 def clean_rule(data: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only what the chosen action uses, and drop empty optional values."""
     action = RuleAction(data[CONF_ACTION])
+    keep = ACTION_KEYS[action]
     cleaned: dict[str, Any] = {}
     for key, value in data.items():
-        if any(key in keys for other, keys in ACTION_KEYS.items() if other != action):
+        if key not in keep and any(key in keys for keys in ACTION_KEYS.values()):
             continue
         if value is None and key in (
             CONF_STATION,
@@ -168,18 +172,24 @@ async def async_validate_rule(
         ):
             errors[CONF_PLAYERS] = "players_cannot_skip"
             placeholders["players"] = ", ".join(missing)
-    elif action is RuleAction.SWITCH:
-        if not data.get(CONF_STATION) and not data.get(CONF_STATION_ACTIONS):
+    elif action in (RuleAction.SWITCH, RuleAction.AUTO):
+        has_station = bool(data.get(CONF_STATION) or data.get(CONF_STATION_ACTIONS))
+        if action is RuleAction.SWITCH and not has_station:
             errors[CONF_STATION] = "station_required"
         if (
-            data.get(CONF_RETURN_AFTER_MINUTES)
+            has_station
+            and data.get(CONF_RETURN_AFTER_MINUTES)
             and not data.get(CONF_RETURN_FALLBACK_MEDIA)
             and not data.get(CONF_RETURN_FALLBACK_ACTIONS)
         ):
             errors[CONF_RETURN_FALLBACK_MEDIA] = "fallback_required"
-        if data.get(CONF_STATION) and (
-            missing := players_without(
-                hass, players, MediaPlayerEntityFeature.PLAY_MEDIA
+        if (
+            action is RuleAction.SWITCH
+            and data.get(CONF_STATION)
+            and (
+                missing := players_without(
+                    hass, players, MediaPlayerEntityFeature.PLAY_MEDIA
+                )
             )
         ):
             errors[CONF_STATION] = "players_cannot_play_media"

@@ -229,7 +229,7 @@ class RuleSubentryFlow(ConfigSubentryFlow):
                 vol.Required(CONF_PLAYERS): EntitySelector(
                     EntitySelectorConfig(domain=MEDIA_PLAYER_DOMAIN, multiple=True)
                 ),
-                vol.Required(CONF_ACTION, default=RuleAction.SKIP.value): _select(
+                vol.Required(CONF_ACTION, default=RuleAction.AUTO.value): _select(
                     RuleAction, CONF_ACTION
                 ),
                 vol.Required(SECTION_MATCHING): section(
@@ -276,7 +276,7 @@ class RuleSubentryFlow(ConfigSubentryFlow):
 
     async def _async_step_for_action(self) -> SubentryFlowResult:
         action = RuleAction(self._data[CONF_ACTION])
-        if action is RuleAction.SKIP:
+        if action in (RuleAction.SKIP, RuleAction.AUTO):
             return await self.async_step_skip()
         if action is RuleAction.SWITCH:
             return await self.async_step_switch()
@@ -289,12 +289,18 @@ class RuleSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Settings of the skip action."""
         errors: dict[str, str] = {}
+        auto = self._data[CONF_ACTION] == RuleAction.AUTO
         if user_input is not None:
             self._data.update(user_input)
+            if auto:
+                return await self.async_step_switch()
             return await self.async_step_conditions()
-        if missing := players_without(
-            self.hass, self._data[CONF_PLAYERS], MediaPlayerEntityFeature.NEXT_TRACK
-        ):
+        missing: list[str] = []
+        if not auto:
+            missing = players_without(
+                self.hass, self._data[CONF_PLAYERS], MediaPlayerEntityFeature.NEXT_TRACK
+            )
+        if missing:
             errors["base"] = "players_cannot_skip"
         schema = vol.Schema(
             {
@@ -318,21 +324,28 @@ class RuleSubentryFlow(ConfigSubentryFlow):
         errors: dict[str, str] = {}
         missing: list[str] = []
         if user_input is not None:
-            if not user_input.get(CONF_STATION) and not user_input.get(
-                CONF_STATION_ACTIONS
-            ):
+            auto = self._data[CONF_ACTION] == RuleAction.AUTO
+            has_station = bool(
+                user_input.get(CONF_STATION) or user_input.get(CONF_STATION_ACTIONS)
+            )
+            if not auto and not has_station:
                 errors[CONF_STATION] = "station_required"
             if (
-                user_input[CONF_RETURN_AFTER_MINUTES]
+                has_station
+                and user_input[CONF_RETURN_AFTER_MINUTES]
                 and not user_input.get(CONF_RETURN_FALLBACK_MEDIA)
                 and not user_input.get(CONF_RETURN_FALLBACK_ACTIONS)
             ):
                 errors[CONF_RETURN_FALLBACK_MEDIA] = "fallback_required"
-            if user_input.get(CONF_STATION) and (
-                missing := players_without(
-                    self.hass,
-                    self._data[CONF_PLAYERS],
-                    MediaPlayerEntityFeature.PLAY_MEDIA,
+            if (
+                not auto
+                and user_input.get(CONF_STATION)
+                and (
+                    missing := players_without(
+                        self.hass,
+                        self._data[CONF_PLAYERS],
+                        MediaPlayerEntityFeature.PLAY_MEDIA,
+                    )
                 )
             ):
                 errors[CONF_STATION] = "players_cannot_play_media"
