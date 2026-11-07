@@ -8,8 +8,9 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components.media_player import MediaPlayerEntityFeature
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import ATTR_SUPPORTED_FEATURES
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import condition
 from homeassistant.helpers import config_validation as cv
@@ -33,9 +34,11 @@ from .const import (
     CONF_RETURN_AFTER_MINUTES,
     CONF_RETURN_FALLBACK_ACTIONS,
     CONF_RETURN_FALLBACK_MEDIA,
+    CONF_RULE_ORDER,
     CONF_STATION,
     CONF_STATION_ACTIONS,
     DEFAULT_MATCH_FIELDS,
+    SUBENTRY_TYPE_RULE,
     MatchField,
     MatchMode,
     PresenceMode,
@@ -105,6 +108,20 @@ RULE_SCHEMA = vol.Schema(
     },
     extra=vol.REMOVE_EXTRA,
 )
+
+
+@callback
+def ordered_rules(entry: ConfigEntry) -> list[ConfigSubentry]:
+    """The rules in the order they are checked: the saved order, new rules last."""
+    rules = [
+        subentry
+        for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_TYPE_RULE
+    ]
+    order = list(entry.data.get(CONF_RULE_ORDER, []))
+    position = {subentry_id: index for index, subentry_id in enumerate(order)}
+    rules.sort(key=lambda subentry: position.get(subentry.subentry_id, len(order)))
+    return rules
 
 
 def players_without(

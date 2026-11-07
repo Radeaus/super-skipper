@@ -26,6 +26,7 @@ from .const import (
     CONF_CONFIRM_SECONDS,
     CONF_COOLDOWN_SECONDS,
     CONF_NAME,
+    CONF_RULE_ORDER,
     CONF_SNOOZE_MINUTES,
     DEFAULT_CONFIRM_SECONDS,
     DEFAULT_COOLDOWN_SECONDS,
@@ -34,7 +35,8 @@ from .const import (
     SIGNAL_UPDATE,
     SUBENTRY_TYPE_RULE,
 )
-from .rules import RULE_SCHEMA, async_validate_rule, clean_rule
+from .engine import order_watchers
+from .rules import RULE_SCHEMA, async_validate_rule, clean_rule, ordered_rules
 
 if TYPE_CHECKING:
     from . import SuperSkipperConfigEntry
@@ -63,6 +65,7 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
         ws_subscribe,
         ws_save_rule,
         ws_delete_rule,
+        ws_reorder_rules,
         ws_set_enabled,
         ws_snooze,
         ws_unsnooze,
@@ -111,9 +114,7 @@ def build_state(hass: HomeAssistant) -> dict[str, Any]:
     data = entry.runtime_data if loaded else None
     registry = er.async_get(hass)
     rules = []
-    for subentry in entry.subentries.values():
-        if subentry.subentry_type != SUBENTRY_TYPE_RULE:
-            continue
+    for subentry in ordered_rules(entry):
         watcher = data.watchers.get(subentry.subentry_id) if data else None
         last = watcher.last_match if watcher else None
         rules.append(
@@ -256,6 +257,44 @@ def ws_delete_rule(
         return
     entry, subentry = found
     hass.config_entries.async_remove_subentry(entry, subentry.subentry_id)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/reorder_rules",
+        vol.Required("order"): [cv.string],
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_reorder_rules(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Save the order in which the rules are checked; the first match acts."""
+    entry = _entry(hass)
+    if entry is None:
+        connection.send_error(
+            msg["id"], "not_configured", "Super Skipper is not set up"
+        )
+        return
+    order: list[str] = msg["order"]
+    rule_ids = [subentry.subentry_id for subentry in ordered_rules(entry)]
+    if sorted(order) != sorted(rule_ids):
+        connection.send_error(
+            msg["id"], "invalid_order", "The order must list every rule once"
+        )
+        return
+    if order == rule_ids:
+        connection.send_result(msg["id"])
+        return
+    if entry.state is ConfigEntryState.LOADED:
+        data = entry.runtime_data
+        data.watchers = order_watchers(data.watchers, order)
+        data.reordering = True
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_RULE_ORDER: order}
+    )
     connection.send_result(msg["id"])
 
 

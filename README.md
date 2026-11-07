@@ -19,6 +19,8 @@ You create **rules**. Each rule has keywords, one or more media players, and an 
 
 Rules can be limited to moments when certain persons are (or are not) at home, and to any other condition you know from automations.
 
+Rules are checked **from top to bottom**. When what plays matches more than one rule for the same player (say, a rule that skips ABBA and a rule that mutes everything with "Live" in the title), only the first of them acts; the rules below leave that track alone. Drag a rule on the Super Skipper page to change the order. A rule that is off, snoozed, or whose conditions are not met does not count, so the next rule gets its turn.
+
 ## Getting started
 
 You need Home Assistant 2025.8 or newer.
@@ -98,13 +100,23 @@ Under **Configure** on the integration:
 
 The sidebar page is where you manage everything:
 
-- **Rules**: the list of rules with their keywords, players and last match. The switch turns a rule off without deleting it. Select a rule to edit or delete it.
+- **Rules**: the list of rules with their keywords, players and last match, in the order they are checked. Drag a rule by its handle (or use the arrows) to change the order. The switch turns a rule off without deleting it. Select a rule to edit or delete it.
+- **Now playing**: what the players of your rules play right now, with an **Add to rule** button. See [Adding what plays right now](#adding-what-plays-right-now).
 - **Recent activity** on a rule: the last thirty things the rule did (skipped, switched, returned, muted, hit a limit, and why), kept across restarts.
-- **Create rule** opens a page with one form. The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search, the station information to ignore, the persons and other conditions.
+- **Create rule** opens a page with one form. Every field and every choice has a short explanation underneath it. The sections **Matching** and **When the rule may act** are collapsed; open them for the match mode, the attributes to search, the station information to ignore, the persons and other conditions.
 - **Snooze** pauses every rule for the snooze time; **Resume** ends the pause early.
 - **Settings** holds the snooze time, the cooldown and the confirmation delay.
 
 The page needs an administrator account.
+
+## Adding what plays right now
+
+Hearing something you never want to hear again? You do not have to type it:
+
+- On the Super Skipper page, the **Now playing** card lists what the players of your rules play. **Add to rule** opens a page where you tick the title, the artist (or album, or channel) and select the rule that gets them. A rule that does not watch that player yet starts watching it. **New rule with these keywords** opens the rule form, filled in.
+- On a dashboard, add the feature **Add to Super Skipper** to a **Tile** card of a media player (edit the card, **Features**, **Add feature**). The button shows what plays and opens the same page. Card features are the way Home Assistant lets integrations add a button under the controls of an entity; the more-info dialog that opens when you tap a media player has no such extension point, so the button cannot appear there.
+
+Both need an administrator account, like the page itself.
 
 ## Entities
 

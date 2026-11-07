@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -12,10 +12,11 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, SIGNAL_UPDATE, SUBENTRY_TYPE_RULE
-from .engine import RuleWatcher, Snooze
+from .const import DOMAIN, SIGNAL_UPDATE
+from .engine import RuleWatcher, Snooze, order_watchers
 from .history import History
 from .panel import async_register_panel, async_remove_panel
+from .rules import ordered_rules
 from .websocket import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +33,8 @@ class SuperSkipperData:
     snooze: Snooze
     watchers: dict[str, RuleWatcher]
     history: History
+    # Set while the order of the rules is saved, which needs no reload.
+    reordering: bool = field(default=False)
 
 
 type SuperSkipperConfigEntry = ConfigEntry[SuperSkipperData]
@@ -49,18 +52,16 @@ async def async_setup_entry(
     """Start watching the players of every rule."""
     await async_register_panel(hass)
     snooze = Snooze(hass, entry)
-    rule_ids = {
-        subentry.subentry_id
-        for subentry in entry.subentries.values()
-        if subentry.subentry_type == SUBENTRY_TYPE_RULE
-    }
+    rules = ordered_rules(entry)
     history = History(hass)
-    await history.async_load(rule_ids)
-    watchers = {
-        subentry.subentry_id: RuleWatcher(hass, entry, subentry, snooze, history)
-        for subentry in entry.subentries.values()
-        if subentry.subentry_id in rule_ids
-    }
+    await history.async_load({subentry.subentry_id for subentry in rules})
+    watchers = order_watchers(
+        {
+            subentry.subentry_id: RuleWatcher(hass, entry, subentry, snooze, history)
+            for subentry in rules
+        },
+        [subentry.subentry_id for subentry in rules],
+    )
     entry.runtime_data = SuperSkipperData(
         snooze=snooze, watchers=watchers, history=history
     )
@@ -78,6 +79,11 @@ async def async_setup_entry(
 async def _async_entry_updated(
     hass: HomeAssistant, entry: SuperSkipperConfigEntry
 ) -> None:
+    data = entry.runtime_data
+    if data.reordering:
+        # Only the order changed; the watchers were put in order already.
+        data.reordering = False
+        return
     hass.config_entries.async_schedule_reload(entry.entry_id)
 
 

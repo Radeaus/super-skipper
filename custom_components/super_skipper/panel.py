@@ -9,7 +9,15 @@ from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant, callback
 
-from .const import DOMAIN, NAME, PANEL_ELEMENT, PANEL_STATIC_URL, PANEL_URL_PATH
+from .const import (
+    DOMAIN,
+    FEATURE_MODULE,
+    NAME,
+    PANEL_ELEMENT,
+    PANEL_MODULE,
+    PANEL_STATIC_URL,
+    PANEL_URL_PATH,
+)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 DATA_STATIC = f"{DOMAIN}_static_registered"
@@ -21,22 +29,26 @@ def _version() -> str:
 
 
 async def async_register_panel(hass: HomeAssistant) -> None:
-    """Add the page to the sidebar, once per run."""
+    """Add the page to the sidebar and the card feature to the dashboards, once per run."""
     if "frontend" not in hass.config.components:
         return
+    version = await hass.async_add_executor_job(_version)
     if not hass.data.get(DATA_STATIC):
         hass.data[DATA_STATIC] = True
         await hass.http.async_register_static_paths(
             [StaticPathConfig(PANEL_STATIC_URL, str(FRONTEND_DIR), False)]
         )
+        # The "Add to Super Skipper" feature of the tile card, for media players.
+        frontend.add_extra_js_url(
+            hass, f"{PANEL_STATIC_URL}/{FEATURE_MODULE}?v={version}"
+        )
     if PANEL_URL_PATH in hass.data.get(frontend.DATA_PANELS, {}):
         return
-    version = await hass.async_add_executor_job(_version)
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_ELEMENT,
-        module_url=f"{PANEL_STATIC_URL}/super-skipper-panel.js?v={version}",
+        module_url=f"{PANEL_STATIC_URL}/{PANEL_MODULE}?v={version}",
         sidebar_title=NAME,
         sidebar_icon="mdi:skip-next-circle",
         require_admin=True,

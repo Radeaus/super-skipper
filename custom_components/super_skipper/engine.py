@@ -19,6 +19,7 @@ from homeassistant.core import (
     Event,
     EventStateChangedData,
     HomeAssistant,
+    State,
     callback,
 )
 from homeassistant.exceptions import HomeAssistantError
@@ -72,6 +73,21 @@ class PlayerTracking:
     buffering_retries: int = 0
     pending: CALLBACK_TYPE | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+@callback
+def order_watchers(
+    watchers: dict[str, RuleWatcher], order: list[str]
+) -> dict[str, RuleWatcher]:
+    """Put the watchers in the given order and tell each which rules come first."""
+    position = {subentry_id: index for index, subentry_id in enumerate(order)}
+    ordered = sorted(
+        watchers.values(),
+        key=lambda watcher: position.get(watcher.subentry_id, len(order)),
+    )
+    for index, watcher in enumerate(ordered):
+        watcher.above = ordered[:index]
+    return {watcher.subentry_id: watcher for watcher in ordered}
 
 
 class Snooze:
@@ -159,6 +175,8 @@ class RuleWatcher:
         )
         self._check_conditions: Callable[[Any], bool] | None = None
         self.enabled = True
+        # The rules checked before this one; the first that matches a track acts.
+        self.above: list[RuleWatcher] = []
         self.action.on_log = self._log_event
         self._tracking: dict[str, PlayerTracking] = {}
         self._unsub: CALLBACK_TYPE | None = None
@@ -328,15 +346,17 @@ class RuleWatcher:
                 tracking.consecutive = 0
                 await self.action.async_match_ended(player, state)
             return
-        if state.state == MediaPlayerState.BUFFERING:
+        if (
+            state.state == MediaPlayerState.BUFFERING
+            and tracking.buffering_retries < BUFFERING_RETRIES
+        ):
             # Players report the previous track while they buffer the next one.
             # Wait for real playback, but not forever.
-            if tracking.buffering_retries < BUFFERING_RETRIES:
-                tracking.buffering_retries += 1
-                tracking.pending = self._confirm_later(
-                    max(self.confirm_delay, 1.0), player, key, matches
-                )
-                return
+            tracking.buffering_retries += 1
+            tracking.pending = self._confirm_later(
+                max(self.confirm_delay, 1.0), player, key, matches
+            )
+            return
         if (
             key == tracking.acted_key
             and time.monotonic() - tracking.acted_at < ACTED_GRACE_SECONDS
@@ -350,6 +370,17 @@ class RuleWatcher:
             )
             return
         if not self.enabled or self.snooze.active or not self._conditions_met():
+            tracking.matched = False
+            tracking.consecutive = 0
+            return
+        if (first := self._first_rule_for(player, state)) is not None:
+            _LOGGER.debug(
+                "%s: %s plays %s, which %s handles because it comes first",
+                self.name,
+                player,
+                describe(state.attributes),
+                first.name,
+            )
             tracking.matched = False
             tracking.consecutive = 0
             return
@@ -372,6 +403,23 @@ class RuleWatcher:
                 self.action.kind_for(player),
             )
             self._notify()
+
+    @callback
+    def claims(self, player: str, state: State) -> bool:
+        """Whether this rule would act on what the player plays now."""
+        if player not in self.players or not self.enabled:
+            return False
+        text = self.matcher.text_of(state.attributes)
+        if self.matcher.is_ignored(text) or not self.matcher.matches(text):
+            return False
+        return self._conditions_met()
+
+    def _first_rule_for(self, player: str, state: State) -> RuleWatcher | None:
+        """The rule above this one that handles the track, if any."""
+        for watcher in self.above:
+            if watcher.claims(player, state):
+                return watcher
+        return None
 
     def _conditions_met(self) -> bool:
         if self.persons:

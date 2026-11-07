@@ -12,7 +12,13 @@ SUBENTRY_TYPE_RULE = "rule"
 PANEL_URL_PATH = "super-skipper"
 PANEL_ELEMENT = "super-skipper-panel"
 PANEL_STATIC_URL = "/super_skipper_static"
+PANEL_MODULE = "super-skipper-panel.js"
+# The card feature for media players, loaded on every page
+FEATURE_MODULE = "super-skipper-feature.js"
 SIGNAL_UPDATE = f"{DOMAIN}_update"
+
+# Data of the integration entry
+CONF_RULE_ORDER = "rule_order"
 
 # Options of the integration entry
 CONF_SNOOZE_MINUTES = "snooze_minutes"
