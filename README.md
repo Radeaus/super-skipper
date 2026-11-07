@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/Radeaus/super-skipper/main/custom_components/super_skipper/brand/icon.png" alt="Super Skipper icon" width="96" height="96"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Radeaus/super-skipper/HEAD/custom_components/super_skipper/brand/icon.png" alt="Super Skipper icon" width="96" height="96"></p>
 
 # Super Skipper
 
