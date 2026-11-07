@@ -12,6 +12,7 @@ A Home Assistant helper integration (`custom_components/super_skipper`) that wat
 - All work happens on the `beta` branch. When Quinten asks for a push, it goes to `beta`.
 - Merge or push to `main` only when Quinten says so explicitly in that conversation. Approval for one push does not carry over to the next one.
 - A release from `beta` is a GitHub **pre-release** whose tag matches `manifest.json` (for example `v0.1.0b1` for version `0.1.0b1`). The Marketplace and HACS only offer it to people who turned on the *Pre-release* switch of this repository, so Quinten can test it in their own Home Assistant first.
+- **Every push to `beta` ships as a new pre-release** (Quinten asked for this on 2026-11-07): bump the `b` number in `manifest.json` in the last commit, push, then `gh release create vX.Y.ZbN --prerelease --target beta` with short notes of what changed. Nothing else on GitHub without asking.
 - A normal release (`vX.Y.Z`, no `b`) is made from `main`, after the merge Quinten asked for.
 
 ## Commits
