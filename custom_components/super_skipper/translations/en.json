@@ -1,0 +1,225 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Super Skipper",
+        "description": "Super Skipper watches your media players. When a keyword you choose shows up in the title or artist, it skips the track, switches to another station for a while, or mutes the player.\n\nAfter this step, create your first rule on the Super Skipper integration page."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Super Skipper is already set up. Create rules on its integration page."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Super Skipper settings",
+        "data": {
+          "snooze_minutes": "Snooze time",
+          "cooldown_seconds": "Cooldown between actions",
+          "confirm_seconds": "Confirmation delay"
+        },
+        "data_description": {
+          "snooze_minutes": "How long the **Snooze** button pauses every rule.",
+          "cooldown_seconds": "The least time between two actions on the same player. Prevents double skips when a player reports a track twice.",
+          "confirm_seconds": "How long a track must play before a rule acts. Filters out metadata that flickers while a player changes tracks."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "rule": {
+      "entry_type": "Rule",
+      "initiate_flow": {
+        "user": "Create rule",
+        "reconfigure": "Edit rule"
+      },
+      "step": {
+        "basics": {
+          "title": "What to look for",
+          "description": "Choose the keywords, the players to watch, and what to do when a keyword plays.",
+          "data": {
+            "name": "Name",
+            "keywords": "Keywords",
+            "players": "Media players",
+            "action": "Action"
+          },
+          "data_description": {
+            "name": "Shown in the rule list and in the logbook, for example `No ABBA on the radio`.",
+            "keywords": "Words or phrases to look for, like an artist, a song title, or `Advertisement`. Press Enter after each one.",
+            "players": "The rule acts on each of these players separately.",
+            "action": "**Skip** goes to the next track. **Switch station** plays something else and returns later. **Mute** silences the player until the keyword is gone."
+          },
+          "sections": {
+            "matching": {
+              "name": "Matching",
+              "description": "How the keywords are compared with what plays.",
+              "data": {
+                "match_mode": "Match",
+                "match_fields": "Look in",
+                "ignore_texts": "Ignore station information"
+              },
+              "data_description": {
+                "match_mode": "**Whole words** matches `ABBA` in `ABBA - Waterloo` but not in `Kabbalah`. **Any part of a word** matches both. **Regular expression** treats each keyword as a pattern. Case and accents never matter.",
+                "match_fields": "The media player attributes to search. Radio stations often put the station name in the channel or artist attribute.",
+                "ignore_texts": "Texts a station shows between songs, like its name or slogan. When the title contains one of these, Super Skipper treats it as station information, not as a new track."
+              }
+            }
+          }
+        },
+        "skip": {
+          "title": "Skip",
+          "description": "{players}",
+          "data": {
+            "max_consecutive": "Skips in a row"
+          },
+          "data_description": {
+            "max_consecutive": "After this many tracks skipped in a row, the rule waits until something plays that does not match. Prevents endless skipping when a whole album matches. `0` means no limit."
+          }
+        },
+        "switch": {
+          "title": "Switch station",
+          "description": "Choose what to play instead. Pick a station from the media browser (the **Radio Browser** source lists thousands of stations) or run your own actions, for example a script that starts a station.\n\n{players}",
+          "data": {
+            "station": "Station",
+            "station_actions": "Or run these actions",
+            "return_after_minutes": "Return after",
+            "return_fallback_media": "If returning fails, play",
+            "return_fallback_actions": "Or run these actions instead",
+            "repeat_mode": "When the keyword still plays after returning",
+            "repeat_limit": "Switch at most"
+          },
+          "data_description": {
+            "station": "Pick a player to browse with; the rule plays the same station on each of its players.",
+            "station_actions": "Actions run with the variables `player` (the entity ID) and `rule` (this rule's name).",
+            "return_after_minutes": "Minutes to wait before playing what was on before. `0` keeps the new station on.",
+            "return_fallback_media": "Super Skipper remembers what played and tries to return to it. That does not work on every player (for example Spotify or MusicCast), so choose what to play if it fails.",
+            "return_fallback_actions": "Alternative to the fallback media above: your own actions, with the same variables.",
+            "repeat_mode": "**Switch again, with a limit** switches again up to the limit below, then stays on the other station. **Switch again, without limit** keeps switching. **Switch only once** leaves it on after the first return.",
+            "repeat_limit": "Times to switch again before staying on the other station."
+          }
+        },
+        "mute": {
+          "title": "Mute",
+          "description": "The player is muted while the keyword plays, and unmuted when something else has played for a moment.",
+          "data": {
+            "hold_seconds": "Unmute after",
+            "max_mute_minutes": "Mute at most"
+          },
+          "data_description": {
+            "hold_seconds": "Seconds something else must play before the sound comes back. Covers stations that show their name between songs.",
+            "max_mute_minutes": "Safety limit in minutes. The sound always comes back after this time. `0` means no limit."
+          }
+        },
+        "conditions": {
+          "title": "When the rule may act",
+          "description": "Leave everything empty to let the rule act at any time.",
+          "data": {
+            "persons": "Persons",
+            "presence_mode": "The rule acts when"
+          },
+          "data_description": {
+            "persons": "Persons whose presence decides whether the rule acts.",
+            "presence_mode": "How the persons above must be at home. Ignored when no persons are chosen."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Advanced",
+              "description": "Extra conditions, like a time of day or a state. All of them must be met.",
+              "data": {
+                "conditions": "Conditions"
+              },
+              "data_description": {
+                "conditions": "The same conditions you know from automations."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "keywords_required": "Add at least one keyword.",
+        "players_required": "Choose at least one media player.",
+        "invalid_regex": "One of the keywords is not a valid regular expression. Fix it or choose another match mode.",
+        "players_cannot_skip": "These players do not support skipping tracks, so the rule cannot act on them: {players}.",
+        "players_cannot_play_media": "These players cannot play media chosen in the media browser, so use actions instead: {players}.",
+        "station_required": "Choose a station or add actions that start one.",
+        "fallback_required": "Choose what to play if returning fails, or set **Return after** to 0."
+      },
+      "abort": {
+        "reconfigure_successful": "The rule is updated."
+      }
+    }
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "skip": "Skip to the next track",
+        "switch": "Switch station",
+        "mute": "Mute until it is over"
+      }
+    },
+    "match_mode": {
+      "options": {
+        "whole_word": "Whole words",
+        "substring": "Any part of a word",
+        "regex": "Regular expression"
+      }
+    },
+    "match_fields": {
+      "options": {
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Album",
+        "channel": "Channel"
+      }
+    },
+    "repeat_mode": {
+      "options": {
+        "limited": "Switch again, with a limit",
+        "unlimited": "Switch again, without limit",
+        "once": "Switch only once"
+      }
+    },
+    "presence_mode": {
+      "options": {
+        "any_home": "At least one of them is home",
+        "all_home": "All of them are home",
+        "none_home": "None of them is home"
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "snooze": {
+        "name": "Snooze"
+      }
+    },
+    "sensor": {
+      "last_match": {
+        "name": "Last match",
+        "state_attributes": {
+          "player": {
+            "name": "Player"
+          },
+          "action": {
+            "name": "Action"
+          },
+          "matched_at": {
+            "name": "Matched at"
+          },
+          "matches": {
+            "name": "Matches"
+          }
+        }
+      },
+      "snoozed_until": {
+        "name": "Snoozed until"
+      }
+    },
+    "switch": {
+      "enabled": {
+        "name": "Enabled"
+      }
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Super Skipper instellen",
+        "description": "Super Skipper let op je mediaspelers. Zodra een door jou gekozen trefwoord in de titel of artiest voorkomt, slaat het het nummer over, schakelt het tijdelijk naar een andere zender, of dempt het de speler.\n\nMaak na deze stap je eerste regel op de integratiepagina van Super Skipper."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Super Skipper is al ingesteld. Maak regels op de integratiepagina."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instellingen van Super Skipper",
+        "data": {
+          "snooze_minutes": "Sluimertijd",
+          "cooldown_seconds": "Wachttijd tussen acties",
+          "confirm_seconds": "Bevestigingsvertraging"
+        },
+        "data_description": {
+          "snooze_minutes": "Hoelang de knop **Sluimeren** alle regels pauzeert.",
+          "cooldown_seconds": "De minimale tijd tussen twee acties op dezelfde speler. Voorkomt dubbel overslaan als een speler een nummer twee keer meldt.",
+          "confirm_seconds": "Hoelang een nummer moet spelen voordat een regel ingrijpt. Filtert metadata die even flikkert terwijl een speler van nummer wisselt."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "rule": {
+      "entry_type": "Regel",
+      "initiate_flow": {
+        "user": "Regel maken",
+        "reconfigure": "Regel bewerken"
+      },
+      "step": {
+        "basics": {
+          "title": "Waar op letten",
+          "description": "Kies de trefwoorden, de spelers om op te letten, en wat er moet gebeuren als een trefwoord speelt.",
+          "data": {
+            "name": "Naam",
+            "keywords": "Trefwoorden",
+            "players": "Mediaspelers",
+            "action": "Actie"
+          },
+          "data_description": {
+            "name": "Zichtbaar in de lijst met regels en in het logboek, bijvoorbeeld `Geen ABBA op de radio`.",
+            "keywords": "Woorden of zinnen om op te letten, zoals een artiest, een titel, of `Advertisement`. Druk na elk trefwoord op Enter.",
+            "players": "De regel werkt op elk van deze spelers apart.",
+            "action": "**Overslaan** gaat naar het volgende nummer. **Andere zender** speelt iets anders en keert later terug. **Dempen** zet het geluid uit tot het trefwoord weg is."
+          },
+          "sections": {
+            "matching": {
+              "name": "Vergelijken",
+              "description": "Hoe de trefwoorden worden vergeleken met wat er speelt.",
+              "data": {
+                "match_mode": "Vergelijk",
+                "match_fields": "Zoek in",
+                "ignore_texts": "Zenderinformatie negeren"
+              },
+              "data_description": {
+                "match_mode": "**Hele woorden** vindt `ABBA` in `ABBA - Waterloo` maar niet in `Kabbalah`. **Elk deel van een woord** vindt beide. **Reguliere expressie** behandelt elk trefwoord als patroon. Hoofdletters en accenten maken nooit uit.",
+                "match_fields": "De attributen van de mediaspeler om in te zoeken. Radiozenders zetten de zendernaam vaak in het attribuut kanaal of artiest.",
+                "ignore_texts": "Teksten die een zender tussen nummers toont, zoals de naam of slogan. Als de titel een van deze teksten bevat, ziet Super Skipper het als zenderinformatie, niet als een nieuw nummer."
+              }
+            }
+          }
+        },
+        "skip": {
+          "title": "Overslaan",
+          "description": "{players}",
+          "data": {
+            "max_consecutive": "Keer achter elkaar overslaan"
+          },
+          "data_description": {
+            "max_consecutive": "Na zoveel achter elkaar overgeslagen nummers wacht de regel tot er iets speelt dat niet overeenkomt. Voorkomt eindeloos overslaan als een heel album overeenkomt. `0` betekent geen limiet."
+          }
+        },
+        "switch": {
+          "title": "Andere zender",
+          "description": "Kies wat er in plaats daarvan moet spelen. Kies een zender in de mediabrowser (de bron **Radio Browser** bevat duizenden zenders) of voer je eigen acties uit, bijvoorbeeld een script dat een zender start.\n\n{players}",
+          "data": {
+            "station": "Zender",
+            "station_actions": "Of voer deze acties uit",
+            "return_after_minutes": "Terug na",
+            "return_fallback_media": "Als terugkeren mislukt, speel",
+            "return_fallback_actions": "Of voer in plaats daarvan deze acties uit",
+            "repeat_mode": "Als het trefwoord na het terugkeren nog speelt",
+            "repeat_limit": "Hoogstens zo vaak wisselen"
+          },
+          "data_description": {
+            "station": "Kies een speler om mee te bladeren; de regel speelt dezelfde zender op elk van zijn spelers.",
+            "station_actions": "De acties krijgen de variabelen `player` (de entity-ID) en `rule` (de naam van deze regel).",
+            "return_after_minutes": "Minuten wachten voordat weer speelt wat ervoor speelde. `0` laat de nieuwe zender aan staan.",
+            "return_fallback_media": "Super Skipper onthoudt wat er speelde en probeert daarnaar terug te keren. Dat werkt niet op elke speler (bijvoorbeeld Spotify of MusicCast), dus kies wat er moet spelen als het mislukt.",
+            "return_fallback_actions": "Alternatief voor de media hierboven: je eigen acties, met dezelfde variabelen.",
+            "repeat_mode": "**Opnieuw wisselen, met limiet** wisselt opnieuw tot de limiet hieronder en blijft daarna op de andere zender. **Opnieuw wisselen, zonder limiet** blijft wisselen. **Eén keer wisselen** laat het na de eerste terugkeer zo.",
+            "repeat_limit": "Hoe vaak opnieuw wisselen voordat de andere zender aan blijft."
+          }
+        },
+        "mute": {
+          "title": "Dempen",
+          "description": "De speler wordt gedempt zolang het trefwoord speelt, en weer aangezet als er even iets anders heeft gespeeld.",
+          "data": {
+            "hold_seconds": "Geluid terug na",
+            "max_mute_minutes": "Hoogstens dempen"
+          },
+          "data_description": {
+            "hold_seconds": "Seconden dat er iets anders moet spelen voordat het geluid terugkomt. Vangt zenders op die hun naam tussen nummers tonen.",
+            "max_mute_minutes": "Veiligheidslimiet in minuten. Het geluid komt na deze tijd altijd terug. `0` betekent geen limiet."
+          }
+        },
+        "conditions": {
+          "title": "Wanneer de regel mag ingrijpen",
+          "description": "Laat alles leeg om de regel altijd te laten ingrijpen.",
+          "data": {
+            "persons": "Personen",
+            "presence_mode": "De regel grijpt in als"
+          },
+          "data_description": {
+            "persons": "Personen van wie de aanwezigheid bepaalt of de regel ingrijpt.",
+            "presence_mode": "Hoe de personen hierboven thuis moeten zijn. Wordt genegeerd als er geen personen zijn gekozen."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Geavanceerd",
+              "description": "Extra voorwaarden, zoals een tijdstip of een status. Ze moeten allemaal waar zijn.",
+              "data": {
+                "conditions": "Voorwaarden"
+              },
+              "data_description": {
+                "conditions": "Dezelfde voorwaarden als in automatiseringen."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "keywords_required": "Voeg minstens één trefwoord toe.",
+        "players_required": "Kies minstens één mediaspeler.",
+        "invalid_regex": "Een van de trefwoorden is geen geldige reguliere expressie. Pas het aan of kies een andere vergelijkingsmethode.",
+        "players_cannot_skip": "Deze spelers kunnen geen nummers overslaan, dus de regel kan er niet op ingrijpen: {players}.",
+        "players_cannot_play_media": "Deze spelers kunnen geen media uit de mediabrowser afspelen; gebruik daarvoor acties: {players}.",
+        "station_required": "Kies een zender of voeg acties toe die er een starten.",
+        "fallback_required": "Kies wat er moet spelen als terugkeren mislukt, of zet **Terug na** op 0."
+      },
+      "abort": {
+        "reconfigure_successful": "De regel is bijgewerkt."
+      }
+    }
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "skip": "Naar het volgende nummer",
+        "switch": "Andere zender",
+        "mute": "Dempen tot het voorbij is"
+      }
+    },
+    "match_mode": {
+      "options": {
+        "whole_word": "Hele woorden",
+        "substring": "Elk deel van een woord",
+        "regex": "Reguliere expressie"
+      }
+    },
+    "match_fields": {
+      "options": {
+        "title": "Titel",
+        "artist": "Artiest",
+        "album": "Album",
+        "channel": "Kanaal"
+      }
+    },
+    "repeat_mode": {
+      "options": {
+        "limited": "Opnieuw wisselen, met limiet",
+        "unlimited": "Opnieuw wisselen, zonder limiet",
+        "once": "Eén keer wisselen"
+      }
+    },
+    "presence_mode": {
+      "options": {
+        "any_home": "Minstens een van hen thuis is",
+        "all_home": "Ze allemaal thuis zijn",
+        "none_home": "Geen van hen thuis is"
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "snooze": {
+        "name": "Sluimeren"
+      }
+    },
+    "sensor": {
+      "last_match": {
+        "name": "Laatste match",
+        "state_attributes": {
+          "player": {
+            "name": "Speler"
+          },
+          "action": {
+            "name": "Actie"
+          },
+          "matched_at": {
+            "name": "Gevonden op"
+          },
+          "matches": {
+            "name": "Aantal"
+          }
+        }
+      },
+      "snoozed_until": {
+        "name": "Gesluimerd tot"
+      }
+    },
+    "switch": {
+      "enabled": {
+        "name": "Ingeschakeld"
+      }
+    }
+  }
+}

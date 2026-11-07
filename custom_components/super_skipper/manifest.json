@@ -1,0 +1,25 @@
+{
+  "domain": "super_skipper",
+  "name": "Super Skipper",
+  "after_dependencies": [
+    "logbook",
+    "media_player",
+    "sonos"
+  ],
+  "categories": [
+    "helpers",
+    "media_entertainment.music_radio_services"
+  ],
+  "codeowners": [
+    "@Radeaus"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Radeaus/super-skipper",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/Radeaus/super-skipper/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0b1"
+}

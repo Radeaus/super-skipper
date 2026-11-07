@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "button": {
+      "snooze": {
+        "default": "mdi:sleep"
+      }
+    },
+    "sensor": {
+      "last_match": {
+        "default": "mdi:music-note-off"
+      },
+      "snoozed_until": {
+        "default": "mdi:sleep"
+      }
+    },
+    "switch": {
+      "enabled": {
+        "default": "mdi:skip-next-circle",
+        "state": {
+          "off": "mdi:skip-next-circle-outline"
+        }
+      }
+    }
+  }
+}
