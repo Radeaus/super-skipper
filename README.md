@@ -4,7 +4,7 @@
 
 A Home Assistant helper that watches your media players. When a keyword you choose shows up in the title or artist of what plays, it skips the track, switches to another radio station for a while, or mutes the player until the song is over.
 
-No more ABBA on the kitchen radio. No more Christmas songs in November. No more "Advertisement" at full volume.
+![The Super Skipper page in Home Assistant, with four rules and what the players play right now](https://raw.githubusercontent.com/Radeaus/super-skipper/HEAD/assets/screenshot.png)
 
 ## How it works
 
