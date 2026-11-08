@@ -344,6 +344,10 @@ class SuperSkipperPanel extends HTMLElement {
     this._prefill = null;
     this._add = null;
     this._playersSig = "";
+    this._html = null;
+    this._pressing = false;
+    this._renderQueued = false;
+    this.shadowRoot.addEventListener("pointerdown", () => this._onPress());
     this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
     this.shadowRoot.addEventListener("keydown", (ev) => {
       if ((ev.key === " " || ev.key === "Enter") && ev.target?.dataset?.action === "toggle-keyword") this._onClick(ev);
@@ -614,8 +618,14 @@ class SuperSkipperPanel extends HTMLElement {
   }
 
   _refreshNowPlaying() {
+    if (this._pressing) {
+      this._renderQueued = true;
+      return;
+    }
     const card = this.shadowRoot.getElementById("now-playing");
-    if (card) card.outerHTML = this._nowPlayingCard();
+    if (!card) return;
+    card.outerHTML = this._nowPlayingCard();
+    this._html = null;
   }
 
   _rule(id) {
@@ -674,6 +684,24 @@ class SuperSkipperPanel extends HTMLElement {
   }
 
   // Events
+
+  // Replacing the element under a finger or mouse loses its click, so drawing
+  // waits until the press is over.
+  _onPress() {
+    if (this._pressing) return;
+    this._pressing = true;
+    const release = () => {
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+      // Late enough for the click that belongs to this press.
+      setTimeout(() => {
+        this._pressing = false;
+        if (this._renderQueued) this._render();
+      }, 50);
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+  }
 
   _onClick(ev) {
     const el = ev.composedPath().find((node) => node.dataset?.action);
@@ -779,6 +807,12 @@ class SuperSkipperPanel extends HTMLElement {
     }
   }
 
+  // A toast belongs to Home Assistant itself: it stays visible when the page
+  // changes and wherever the page is scrolled to.
+  _toast(message) {
+    this.dispatchEvent(new CustomEvent("hass-notification", { bubbles: true, composed: true, detail: { message } }));
+  }
+
   // Home Assistant's own confirmation dialog. Resolves to null when it cannot be shown.
   async _confirm(params) {
     try {
@@ -803,8 +837,8 @@ class SuperSkipperPanel extends HTMLElement {
         return;
       }
       this._errors = {};
+      this._toast(this._t("saved"));
       this._navigate("");
-      this._notice = { type: "success", text: this._t("saved") };
     });
   }
 
@@ -852,8 +886,8 @@ class SuperSkipperPanel extends HTMLElement {
         this._notice = { type: "error", text: this._t("fix_errors") };
         return;
       }
+      this._toast(this._t("add_done", { keywords: (fresh.length ? fresh : keywords).join(", "), rule: rule.title }));
       this._navigate("");
-      this._notice = { type: "success", text: this._t("add_done", { keywords: fresh.join(", "), rule: rule.title }) };
     });
   }
 
@@ -1020,7 +1054,7 @@ class SuperSkipperPanel extends HTMLElement {
     form.data = this._draft;
     form.error = this._errors;
     form.disabled = this._busy.has("save");
-    host.appendChild(form);
+    if (form.parentNode !== host) host.appendChild(form);
   }
 
   _mountOptionsForm(host) {
@@ -1045,7 +1079,7 @@ class SuperSkipperPanel extends HTMLElement {
     form.hass = this._hass;
     form.data = this._optionsDraft || this._state.options;
     form.disabled = this._busy.has("options");
-    host.appendChild(form);
+    if (form.parentNode !== host) host.appendChild(form);
   }
 
   _ruleTitle() {
@@ -1074,6 +1108,11 @@ class SuperSkipperPanel extends HTMLElement {
 
   _render() {
     if (!this._hass) return;
+    if (this._pressing) {
+      this._renderQueued = true;
+      return;
+    }
+    this._renderQueued = false;
     const view = this._view();
     let body;
     if (!this._state || !this._ready) body = this._loading();
@@ -1082,17 +1121,21 @@ class SuperSkipperPanel extends HTMLElement {
     else if (view.name === "add") body = this._renderAdd(view);
     else body = this._renderOverview();
     if (view.name !== "rule") this._ruleForm = null;
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style>${body}`;
-    this._playersSig = this._playersSignature();
-    const sortable = this.shadowRoot.querySelector("ha-sortable");
-    if (sortable) {
-      sortable.addEventListener("item-moved", (ev) => {
-        ev.stopPropagation();
-        const { oldIndex, newIndex } = ev.detail;
-        // Let the drag finish before the list is drawn again.
-        setTimeout(() => this._reorder(oldIndex, newIndex), 0);
-      });
+    // Nothing changed: leave the page alone, also for the sake of what is being tapped.
+    if (body !== this._html) {
+      this.shadowRoot.innerHTML = `<style>${STYLES}</style>${body}`;
+      this._html = body;
+      const sortable = this.shadowRoot.querySelector("ha-sortable");
+      if (sortable) {
+        sortable.addEventListener("item-moved", (ev) => {
+          ev.stopPropagation();
+          const { oldIndex, newIndex } = ev.detail;
+          // Let the drag finish before the list is drawn again.
+          setTimeout(() => this._reorder(oldIndex, newIndex), 0);
+        });
+      }
     }
+    this._playersSig = this._playersSignature();
     for (const el of this.shadowRoot.querySelectorAll("ha-menu-button")) {
       el.hass = this._hass;
       el.narrow = this._narrow;
@@ -1272,8 +1315,8 @@ class SuperSkipperPanel extends HTMLElement {
               <span class="supporting">${esc((rule.data.keywords || []).join(", "))}</span>
               ${watches ? "" : `<span class="supporting">${esc(this._t("add_also_player", { player: name }))}</span>`}
             </span>
+            <span class="row-end">${icon("mdi:plus")}</span>
           </button>
-          <span class="row-end">${icon("mdi:plus")}</span>
         </div>`;
       });
       body = `<ha-card header="${esc(this._t("add_keywords"))}">

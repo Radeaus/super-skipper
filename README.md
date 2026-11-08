@@ -114,7 +114,7 @@ The page needs an administrator account.
 Hearing something you never want to hear again? You do not have to type it:
 
 - On the Super Skipper page, the **Now playing** card lists what the players of your rules play. **Add to rule** opens a page where you tick the title, the artist (or album, or channel) and select the rule that gets them. A rule that does not watch that player yet starts watching it. **New rule with these keywords** opens the rule form, filled in.
-- On a dashboard, add the feature **Add to Super Skipper** to a **Tile** card of a media player (edit the card, **Features**, **Add feature**). The button shows what plays and opens the same page. Card features are the way Home Assistant lets integrations add a button under the controls of an entity; the more-info dialog that opens when you tap a media player has no such extension point, so the button cannot appear there.
+- On a dashboard, add the feature **Add to Super Skipper** to a **Tile** card of a media player (edit the card, **Features**, **Add feature**). It is a single button with a music note that opens the same page. Card features are the way Home Assistant lets integrations add a button under the controls of an entity; the more-info dialog that opens when you tap a media player has no such extension point, so the button cannot appear there.
 
 Both need an administrator account, like the page itself.
 

@@ -1,8 +1,8 @@
 // Super Skipper: the "Add to Super Skipper" feature of the Tile card.
 // A card feature is the official way to put an extra button under the controls
 // of a media player on a dashboard (https://contributors.home-assistant.io/frontend/custom-ui/card-feature/).
-// It shows what the player plays and opens the Super Skipper page, where the
-// title or artist is added to a rule with one tap.
+// It is one button that opens the Super Skipper page, where the title, artist
+// or album of what plays is added to a rule.
 
 const TYPE = "super-skipper-add";
 const PANEL_PATH = "/super-skipper";
@@ -11,12 +11,6 @@ const STRINGS = {
   en: { name: "Add to Super Skipper", idle: "Nothing is playing" },
   nl: { name: "Toevoegen aan Super Skipper", idle: "Er speelt niets" },
 };
-
-const esc = (value) =>
-  String(value ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-  );
 
 const PLAYING = new Set(["playing", "buffering"]);
 
@@ -28,7 +22,9 @@ class SuperSkipperAddFeature extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this.shadowRoot.innerHTML = `<style>${STYLES}</style><button type="button" part="button"></button>`;
+    // Built once: hass is set many times per second, and replacing the content
+    // of the button between press and release loses the click.
+    this.shadowRoot.innerHTML = `<style>${STYLES}</style><button type="button" part="button"><ha-icon icon="mdi:music-note-plus"></ha-icon></button>`;
     this.shadowRoot.querySelector("button").addEventListener("click", (ev) => this._open(ev));
   }
 
@@ -76,14 +72,13 @@ class SuperSkipperAddFeature extends HTMLElement {
       return;
     }
     this.style.display = "";
-    const playing = PLAYING.has(state.state);
     const attributes = state.attributes || {};
     const parts = [attributes.media_artist, attributes.media_title].filter(Boolean);
-    const now = playing ? parts.join(" – ") || attributes.media_channel || "" : "";
-    button.disabled = !playing || !now;
-    button.innerHTML = `<ha-icon icon="mdi:skip-next-circle-outline"></ha-icon><span class="text"><span class="label">${esc(
-      this._t("name")
-    )}</span><span class="now">${esc(now || this._t("idle"))}</span></span>`;
+    const now = PLAYING.has(state.state) ? parts.join(" – ") || attributes.media_channel || "" : "";
+    const label = `${this._t("name")}: ${now || this._t("idle")}`;
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.classList.toggle("idle", !now);
   }
 
   _open(ev) {
@@ -100,19 +95,15 @@ class SuperSkipperAddFeature extends HTMLElement {
 const STYLES = `
 :host { display: block; }
 button {
-  display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--feature-height, 42px);
-  padding: 0 12px; border: none; border-radius: var(--feature-border-radius, 12px);
+  display: flex; align-items: center; justify-content: center; width: 100%; height: var(--feature-height, 42px);
+  padding: 0; border: none; border-radius: var(--feature-border-radius, 12px);
   background: color-mix(in srgb, var(--feature-color, var(--primary-color)) 20%, transparent);
-  color: var(--primary-text-color); font: inherit; text-align: start; cursor: pointer;
-  transition: background 180ms ease-in-out;
+  cursor: pointer; transition: background 180ms ease-in-out;
 }
-button:hover:not(:disabled) { background: color-mix(in srgb, var(--feature-color, var(--primary-color)) 30%, transparent); }
+button:hover { background: color-mix(in srgb, var(--feature-color, var(--primary-color)) 30%, transparent); }
 button:focus-visible { outline: 2px solid var(--feature-color, var(--primary-color)); outline-offset: 2px; }
-button:disabled { cursor: default; opacity: 0.6; }
-ha-icon { color: var(--feature-color, var(--primary-color)); flex: none; }
-.text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; padding: 6px 0; }
-.label { font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500); }
-.now { font-size: var(--ha-font-size-s, 12px); color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.idle { opacity: 0.6; }
+ha-icon { color: var(--feature-color, var(--primary-color)); }
 `;
 
 if (!customElements.get(TYPE)) {
