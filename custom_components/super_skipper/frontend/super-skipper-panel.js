@@ -328,7 +328,7 @@ class SuperSkipperPanel extends HTMLElement {
     this._path = "";
     this._routeSet = false;
     this._ready = false;
-    this._translated = false;
+    this._localizeFn = null;
     this._draft = null;
     this._draftId = undefined;
     this._errors = {};
@@ -372,6 +372,7 @@ class SuperSkipperPanel extends HTMLElement {
     if (this._ruleForm) this._ruleForm.hass = hass;
     if (this._optionsForm) this._optionsForm.hass = hass;
     if (first) {
+      this._localizeFn = hass?.localize;
       this._subscribe();
       this._loadTranslations();
       this._loadDebug();
@@ -382,9 +383,9 @@ class SuperSkipperPanel extends HTMLElement {
       this._language = language;
       this._loadTranslations();
     }
-    // The labels appear once the translations are in; render again then.
-    if (!this._translated && this._localize(`config_subentries.rule.entry_type`)) {
-      this._translated = true;
+    // Home Assistant passes a new localize once the translations are in; render again then.
+    if (hass?.localize !== this._localizeFn) {
+      this._localizeFn = hass?.localize;
       this._render();
       return;
     }
@@ -488,7 +489,6 @@ class SuperSkipperPanel extends HTMLElement {
     } catch (_err) {
       // The page still works, with the field names as labels.
     }
-    this._translated = true;
     this._render();
   }
 
