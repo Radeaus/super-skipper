@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import EntityCategory
+from homeassistant.const import MAX_LENGTH_STATE_STATE, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -42,7 +42,7 @@ class RuleLastMatchSensor(RuleEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         last = self.watcher.last_match
-        return last["description"] if last else None
+        return last["description"][:MAX_LENGTH_STATE_STATE] if last else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

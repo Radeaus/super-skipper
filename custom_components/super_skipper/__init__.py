@@ -25,6 +25,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.SWITCH]
 
+# One history per run, so writes still pending survive a reload of the entry.
+DATA_HISTORY = f"{DOMAIN}_history"
+
 
 @dataclass
 class SuperSkipperData:
@@ -53,7 +56,7 @@ async def async_setup_entry(
     await async_register_panel(hass)
     snooze = Snooze(hass, entry)
     rules = ordered_rules(entry)
-    history = History(hass)
+    history: History = hass.data.setdefault(DATA_HISTORY, History(hass))
     await history.async_load({subentry.subentry_id for subentry in rules})
     watchers = order_watchers(
         {
@@ -100,5 +103,7 @@ async def async_unload_entry(
 async def async_remove_entry(
     hass: HomeAssistant, entry: SuperSkipperConfigEntry
 ) -> None:
-    """Take the page out of the sidebar."""
+    """Take the page out of the sidebar and delete what the rules did."""
     async_remove_panel(hass)
+    history: History = hass.data.pop(DATA_HISTORY, None) or History(hass)
+    await history.async_remove()

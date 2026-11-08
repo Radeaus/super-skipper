@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.components.logbook import async_log_entry
 from homeassistant.components.media_player import (
     ATTR_INPUT_SOURCE,
@@ -36,9 +37,10 @@ from homeassistant.const import (
 )
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.script import Script
+from homeassistant.helpers.script import Script, async_validate_actions_config
 
 from .const import (
     ALTERNATIVE_SETTLE_SECONDS,
@@ -143,6 +145,9 @@ class BaseAction:
             cancel()
         self._timers.clear()
 
+    async def async_release(self) -> None:
+        """Home Assistant stops: undo what would otherwise stay that way."""
+
     def log(self, player: str, message: str) -> None:
         """Write a line to the logbook and to the activity of the rule."""
         _LOGGER.debug("%s: %s (%s)", self.rule_name, message, player)
@@ -171,18 +176,22 @@ class BaseAction:
         self, player: str, sequence: list[dict[str, Any]], what: str
     ) -> bool:
         """Run the actions a user configured."""
-        script = Script(
-            self.hass,
-            sequence,
-            f"{self.rule_name} {what}",
-            DOMAIN,
-            running_description=f"{NAME} {what}",
-        )
         try:
+            # Stored actions are plain JSON: templates only render once validated.
+            validated = await async_validate_actions_config(
+                self.hass, cv.SCRIPT_SCHEMA(sequence)
+            )
+            script = Script(
+                self.hass,
+                validated,
+                f"{self.rule_name} {what}",
+                DOMAIN,
+                running_description=f"{NAME} {what}",
+            )
             await script.async_run(
                 {"player": player, "rule": self.rule_name}, context=None
             )
-        except HomeAssistantError as err:
+        except (vol.Invalid, HomeAssistantError) as err:
             _LOGGER.warning("%s: the %s actions failed: %s", self.rule_name, what, err)
             return False
         return True
@@ -642,6 +651,10 @@ class MuteAction(BaseAction):
         for player in list(self.muted):
             self.hass.async_create_task(self._unmute(player, ""))
 
+    async def async_release(self) -> None:
+        for player in list(self.muted):
+            await self._unmute(player, "because Home Assistant stops")
+
 
 LIVE_STREAM_ID = re.compile(
     r"^(media-source://radio_browser|x-sonosapi-stream:|x-sonosapi-radio:|x-sonosapi-hls:"
@@ -739,6 +752,9 @@ class AutoAction(BaseAction):
     def async_shutdown(self) -> None:
         for action in (self.skip, self.switch, self.mute):
             action.async_shutdown()
+
+    async def async_release(self) -> None:
+        await self.mute.async_release()
 
 
 ACTIONS: dict[RuleAction, type[BaseAction]] = {

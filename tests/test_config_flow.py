@@ -160,12 +160,11 @@ async def test_create_skip_rule(hass: HomeAssistant) -> None:
         CONF_MAX_CONSECUTIVE: 3,
         CONF_PERSONS: ["person.quinten"],
         CONF_PRESENCE_MODE: "any_home",
-        # As normalized by the condition selector
+        # As entered: the normalized form cannot always be stored
         CONF_CONDITIONS: [
             {
                 "condition": "state",
-                "entity_id": ["input_boolean.x"],
-                "match": "all",
+                "entity_id": "input_boolean.x",
                 "state": "on",
             }
         ],

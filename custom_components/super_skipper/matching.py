@@ -66,10 +66,14 @@ def compile_keywords(keywords: list[str], mode: MatchMode) -> re.Pattern[str]:
     """Build one pattern for all keywords; raises re.error for a bad regex."""
     parts = []
     for keyword in keywords:
+        normalized = normalize(keyword)
+        if not normalized:
+            # A blank keyword would match every track.
+            continue
         if mode is MatchMode.REGEX:
             parts.append(f"(?:{keyword})")
             continue
-        escaped = re.escape(normalize(keyword))
+        escaped = re.escape(normalized)
         if mode is MatchMode.WHOLE_WORD:
             escaped = rf"(?<!\w){escaped}(?!\w)"
         parts.append(escaped)

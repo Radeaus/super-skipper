@@ -24,6 +24,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import (
     ActionSelector,
     ConditionSelector,
@@ -82,11 +83,24 @@ from .const import (
     RepeatMode,
     RuleAction,
 )
-from .matching import compile_keywords
-from .rules import ACTION_KEYS, clean_rule, players_without
+from .matching import compile_keywords, normalize
+from .rules import ACTION_KEYS, async_actions_valid, clean_rule, players_without
 
 SECTION_MATCHING = "matching"
 SECTION_ADVANCED = "advanced"
+
+
+class StorableConditionSelector(ConditionSelector):
+    """Check the conditions but keep them as entered.
+
+    The validated form holds templates and time periods, which cannot be stored
+    in a config entry.
+    """
+
+    def __call__(self, data: Any) -> Any:
+        """Validate the selection and return it unchanged."""
+        cv.CONDITIONS_SCHEMA(data)
+        return data
 
 
 def _select(options: type[Any], key: str, multiple: bool = False) -> SelectSelector:
@@ -199,7 +213,7 @@ class RuleSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             matching = user_input.pop(SECTION_MATCHING, {})
             flat = {**user_input, **matching}
-            if not flat.get(CONF_KEYWORDS):
+            if not any(normalize(text) for text in flat.get(CONF_KEYWORDS, [])):
                 errors[CONF_KEYWORDS] = "keywords_required"
             if not flat.get(CONF_PLAYERS):
                 errors[CONF_PLAYERS] = "players_required"
@@ -349,6 +363,11 @@ class RuleSubentryFlow(ConfigSubentryFlow):
                 )
             ):
                 errors[CONF_STATION] = "players_cannot_play_media"
+            for key in (CONF_STATION_ACTIONS, CONF_RETURN_FALLBACK_ACTIONS):
+                if user_input.get(key) and not await async_actions_valid(
+                    self.hass, user_input[key]
+                ):
+                    errors[key] = "invalid_actions"
             if not errors:
                 for key in ACTION_KEYS[RuleAction.SWITCH]:
                     self._data.pop(key, None)
@@ -412,7 +431,6 @@ class RuleSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Persons at home and other conditions."""
         if user_input is not None:
-            # The condition selector has validated the conditions already.
             advanced = user_input.pop(SECTION_ADVANCED, {})
             self._data.update(user_input)
             self._data[CONF_CONDITIONS] = advanced.get(CONF_CONDITIONS) or []
@@ -433,7 +451,9 @@ class RuleSubentryFlow(ConfigSubentryFlow):
                     CONF_PRESENCE_MODE, default=PresenceMode.ANY_HOME.value
                 ): _select(PresenceMode, CONF_PRESENCE_MODE),
                 vol.Required(SECTION_ADVANCED): section(
-                    vol.Schema({vol.Optional(CONF_CONDITIONS): ConditionSelector()}),
+                    vol.Schema(
+                        {vol.Optional(CONF_CONDITIONS): StorableConditionSelector()}
+                    ),
                     {"collapsed": True},
                 ),
             }

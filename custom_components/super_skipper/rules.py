@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import condition
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.script import async_validate_actions_config
 
 from .const import (
     CONF_ACTION,
@@ -45,7 +46,7 @@ from .const import (
     RepeatMode,
     RuleAction,
 )
-from .matching import compile_keywords
+from .matching import compile_keywords, normalize
 
 # The keys each action stores, so changing the action drops the others.
 ACTION_KEYS: dict[RuleAction, set[str]] = {
@@ -153,9 +154,22 @@ def clean_rule(data: Mapping[str, Any]) -> dict[str, Any]:
             CONF_RETURN_FALLBACK_ACTIONS,
         ):
             continue
+        if key in (CONF_KEYWORDS, CONF_IGNORE_TEXTS):
+            value = [text for text in value if normalize(text)]
         cleaned[key] = value
     cleaned[CONF_CONDITIONS] = list(data.get(CONF_CONDITIONS) or [])
     return cleaned
+
+
+async def async_actions_valid(
+    hass: HomeAssistant, sequence: list[dict[str, Any]]
+) -> bool:
+    """Return whether a list of user configured actions can run."""
+    try:
+        await async_validate_actions_config(hass, cv.SCRIPT_SCHEMA(sequence))
+    except (vol.Invalid, HomeAssistantError):
+        return False
+    return True
 
 
 async def async_validate_rule(
@@ -167,7 +181,9 @@ async def async_validate_rule(
     """
     errors: dict[str, str] = {}
     placeholders: dict[str, str] = {"players": ""}
-    keywords = [keyword for keyword in data.get(CONF_KEYWORDS, []) if keyword.strip()]
+    keywords = [
+        keyword for keyword in data.get(CONF_KEYWORDS, []) if normalize(keyword)
+    ]
     players = list(data.get(CONF_PLAYERS, []))
     if not str(data.get(CONF_NAME, "")).strip():
         errors[CONF_NAME] = "name_required"
@@ -211,6 +227,9 @@ async def async_validate_rule(
         ):
             errors[CONF_STATION] = "players_cannot_play_media"
             placeholders["players"] = ", ".join(missing)
+        for key in (CONF_STATION_ACTIONS, CONF_RETURN_FALLBACK_ACTIONS):
+            if data.get(key) and not await async_actions_valid(hass, data[key]):
+                errors[key] = "invalid_actions"
 
     conditions = data.get(CONF_CONDITIONS) or []
     try:

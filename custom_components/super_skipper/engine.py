@@ -13,7 +13,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.components.media_player import ATTR_GROUP_MEMBERS, MediaPlayerState
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
-from homeassistant.const import STATE_HOME
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP, STATE_HOME
 from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
@@ -24,6 +24,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import condition
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
@@ -180,6 +181,7 @@ class RuleWatcher:
         self.action.on_log = self._log_event
         self._tracking: dict[str, PlayerTracking] = {}
         self._unsub: CALLBACK_TYPE | None = None
+        self._unsub_ha_stop: CALLBACK_TYPE | None = None
         self._listeners: list[Callable[[], None]] = []
 
     @property
@@ -222,7 +224,7 @@ class RuleWatcher:
         if self.condition_configs:
             try:
                 validated = await condition.async_validate_conditions_config(
-                    self.hass, self.condition_configs
+                    self.hass, cv.CONDITIONS_SCHEMA(self.condition_configs)
                 )
                 self._check_conditions = await condition.async_conditions_from_config(
                     self.hass, validated, _LOGGER, self.name
@@ -238,6 +240,14 @@ class RuleWatcher:
             self._unsub = async_track_state_change_event(
                 self.hass, self.players, self._state_changed
             )
+        # Config entries are not unloaded when Home Assistant stops.
+        self._unsub_ha_stop = self.hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STOP, self._async_ha_stopping
+        )
+
+    async def _async_ha_stopping(self, _event: Event) -> None:
+        self._unsub_ha_stop = None
+        await self.action.async_release()
 
     @callback
     def async_stop(self) -> None:
@@ -245,6 +255,9 @@ class RuleWatcher:
         if self._unsub:
             self._unsub()
             self._unsub = None
+        if self._unsub_ha_stop:
+            self._unsub_ha_stop()
+            self._unsub_ha_stop = None
         for tracking in self._tracking.values():
             if tracking.pending:
                 tracking.pending()

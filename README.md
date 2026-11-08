@@ -76,7 +76,7 @@ Prefer the usual dialogs? Everything on the page is also available under **Setti
 | Field | |
 | --- | --- |
 | Unmute after | Seconds something else must play before the sound comes back. Covers stations that show their name between songs |
-| Mute at most | Safety limit in minutes. The sound always comes back after this time |
+| Mute at most | Safety limit in minutes. The sound comes back after this time, and when Home Assistant shuts down |
 
 ### Rule: when the rule may act
 
@@ -143,6 +143,7 @@ While the alternative station plays, Super Skipper leaves the player alone. If y
 - Some stations send "Artist - Title" in one field, or the station name as the artist. Add the station name to **Ignore station information** and keep **Look in** on title and artist.
 - The Spotify media player cannot play stations from the media browser. For Spotify, use the skip action, or switch with your own actions.
 - Grouped players (Sonos, Music Assistant) are controlled through the group leader only.
+- After a crash or a power cut, a muted player stays muted until you unmute it, and a player on the alternative station stays there.
 
 ## Troubleshooting
 

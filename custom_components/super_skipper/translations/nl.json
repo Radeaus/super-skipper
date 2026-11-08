@@ -145,7 +145,8 @@
         "station_required": "Kies een zender of voeg acties toe die er een starten.",
         "fallback_required": "Kies wat er moet spelen als terugkeren mislukt, of zet **Terug na** op 0.",
         "name_required": "Geef de regel een naam.",
-        "invalid_conditions": "De voorwaarden zijn niet geldig. Controleer ze en probeer het opnieuw."
+        "invalid_conditions": "De voorwaarden zijn niet geldig. Controleer ze en probeer het opnieuw.",
+        "invalid_actions": "Deze acties zijn niet geldig. Controleer ze en probeer het opnieuw."
       },
       "abort": {
         "reconfigure_successful": "De regel is bijgewerkt."

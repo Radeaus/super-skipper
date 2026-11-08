@@ -26,17 +26,28 @@ class History:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._rules: dict[str, dict[str, Any]] = {}
+        self._loaded = False
+        self._removed = False
 
     async def async_load(self, keep: set[str]) -> None:
-        """Read the file, dropping rules that no longer exist."""
-        data = await self._store.async_load() or {}
+        """Read the file once, dropping rules that no longer exist."""
+        if not self._loaded:
+            data = await self._store.async_load() or {}
+            self._rules = data.get("rules", {})
+            self._loaded = True
+        stale = set(self._rules) - keep
         self._rules = {
             rule_id: {**_empty(), **rule}
-            for rule_id, rule in data.get("rules", {}).items()
+            for rule_id, rule in self._rules.items()
             if rule_id in keep
         }
-        if set(data.get("rules", {})) - keep:
+        if stale:
             self._save()
+
+    async def async_remove(self) -> None:
+        """Delete the file, for when the integration is removed."""
+        self._removed = True
+        await self._store.async_remove()
 
     def rule(self, rule_id: str) -> dict[str, Any]:
         """What is known about one rule."""
@@ -69,4 +80,6 @@ class History:
 
     @callback
     def _save(self) -> None:
+        if self._removed:
+            return
         self._store.async_delay_save(lambda: {"rules": self._rules}, SAVE_DELAY)

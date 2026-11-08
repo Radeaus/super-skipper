@@ -145,7 +145,8 @@
         "station_required": "Choose a station or add actions that start one.",
         "fallback_required": "Choose what to play if returning fails, or set **Return after** to 0.",
         "name_required": "Enter a name for the rule.",
-        "invalid_conditions": "The conditions are not valid. Check them and try again."
+        "invalid_conditions": "The conditions are not valid. Check them and try again.",
+        "invalid_actions": "These actions are not valid. Check them and try again."
       },
       "abort": {
         "reconfigure_successful": "The rule is updated."
